@@ -30,7 +30,10 @@ const state = {
     },
     profitFilter: 'diario',
     editingRecord: null,
-    editingClient: null
+    editingClient: null,
+    editingProcedure: null,
+    clientView: 'clients', // 'clients' ou 'procedures'
+    procedures: []
 };
 
 // --- Helper Functions ---
@@ -69,6 +72,26 @@ async function fetchClients() {
         }
     } catch (err) {
         console.error("Erro ao buscar clientes:", err);
+    }
+}
+
+/**
+ * Busca procedimentos cadastrados no Supabase
+ */
+async function fetchProcedures() {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/procedimentos?select=*&order=nome.asc`, {
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY
+            }
+        });
+        if (res.ok) {
+            state.procedures = await res.json();
+            render();
+        }
+    } catch (err) {
+        console.error("Erro ao buscar procedimentos:", err);
     }
 }
 
@@ -375,7 +398,7 @@ const Sidebar = () => `
             ${NavLink('dashboard', 'fa-chart-line', 'Dashboard')}
             ${NavLink('records', 'fa-table', 'Agendamentos')}
             ${NavLink('manage', 'fa-calendar-plus', 'Agendar')}
-            ${NavLink('clients', 'fa-users', 'Clientes')}
+            ${NavLink('clients', 'fa-sliders', 'Gestão')}
             ${NavLink('setup', 'fa-gears', 'Configuração')}
         </nav>
         <div class="p-4 border-t border-white/5">
@@ -409,7 +432,7 @@ const MobileNav = () => `
         ${MobileNavLink('dashboard', 'fa-chart-line', 'Início')}
         ${MobileNavLink('records', 'fa-table', 'Lista')}
         ${MobileNavLink('manage', 'fa-calendar-plus', 'Agendar')}
-        ${MobileNavLink('clients', 'fa-users', 'Clientes')}
+        ${MobileNavLink('clients', 'fa-sliders', 'Gestão')}
         ${MobileNavLink('setup', 'fa-gears', 'Ajustes')}
     </nav>
 `;
@@ -439,7 +462,8 @@ const Header = () => {
         
         await Promise.all([
             syncFromSheet(state.sheetUrl),
-            fetchClients()
+            fetchClients(),
+            fetchProcedures()
         ]);
         
         if (btn) btn.classList.remove('fa-spin');
@@ -840,6 +864,14 @@ const ManagePage = () => {
 
     const isEditing = !!state.editingRecord;
 
+    window.updatePriceByService = (serviceName) => {
+        const proc = state.procedures.find(p => p.nome === serviceName);
+        if (proc) {
+            const priceInput = document.querySelector('input[name="value"]');
+            if (priceInput) priceInput.value = proc.preco;
+        }
+    };
+
     window.saveNewRecord = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -944,13 +976,22 @@ const ManagePage = () => {
 
                     <div class="space-y-2">
                         <label class="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">Serviço/Procedimento</label>
-                        <input type="text" name="service" placeholder="Ex: Corte + Barba" required value="${initialValues.service || initialValues.procedimento}"
-                               class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold">
+                        <div class="relative">
+                            <select name="service" required onchange="window.updatePriceByService(this.value)"
+                                    class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold appearance-none">
+                                <option value="">Selecione...</option>
+                                ${state.procedures.map(p => `
+                                    <option value="${p.nome}" data-price="${p.preco}" ${(initialValues.service || initialValues.procedimento) === p.nome ? 'selected' : ''}>${p.nome}</option>
+                                `).join('')}
+                                <option value="Outro" ${(initialValues.service || initialValues.procedimento) && !state.procedures.find(p => p.nome === (initialValues.service || initialValues.procedimento)) ? 'selected' : ''}>Outro / Personalizado</option>
+                            </select>
+                            <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"></i>
+                        </div>
                     </div>
 
                     <div class="space-y-2">
                         <label class="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">Valor (R$)</label>
-                        <input type="number" step="0.01" name="value" placeholder="0,00" required value="${initialValues.value || initialValues.valor}"
+                        <input type="number" step="0.01" name="value" placeholder="0,00" value="${initialValues.value || initialValues.valor}"
                                class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold">
                     </div>
 
@@ -980,6 +1021,15 @@ const ManagePage = () => {
 };
 
 const ClientsPage = () => {
+    // --- View Toggle ---
+    window.switchClientView = (view) => {
+        state.clientView = view;
+        state.editingClient = null;
+        state.editingProcedure = null;
+        render();
+    };
+
+    // --- Client Logic ---
     window.saveNewClient = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -1018,12 +1068,8 @@ const ClientsPage = () => {
                 fetchClients();
             } else {
                 const errorData = await res.json();
-                console.error('Erro Supabase:', errorData);
-                if (errorData.code === '23505') {
-                    alert('❌ ERRO: Este cliente já está cadastrado.');
-                } else {
-                    alert('❌ Erro ao salvar: ' + (errorData.message || 'Falha no banco de dados.'));
-                }
+                if (errorData.code === '23505') alert('❌ ERRO: Este cliente já está cadastrado.');
+                else alert('❌ Erro ao salvar: ' + (errorData.message || 'Falha no banco de dados.'));
             }
         } catch (err) {
             alert('❌ Erro de conexão.');
@@ -1034,6 +1080,7 @@ const ClientsPage = () => {
     };
 
     window.editClient = (client) => {
+        state.clientView = 'clients';
         state.editingClient = client;
         render();
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1046,27 +1093,105 @@ const ClientsPage = () => {
 
     window.deleteClient = async (id) => {
         if (!confirm('Deseja excluir este cliente? Isso não afetará os agendamentos já feitos.')) return;
-        
         try {
             await fetch(`${SUPABASE_URL}/rest/v1/clientes?id=eq.${id}`, {
                 method: 'DELETE',
-                headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY
-                }
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
             fetchClients();
+        } catch (err) { alert('Erro ao excluir cliente.'); }
+    };
+
+    // --- Procedure Logic ---
+    window.saveProcedure = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const btn = e.target.querySelector('button[type="submit"]');
+        const isEditing = !!state.editingProcedure;
+        
+        const procedureData = {
+            nome: formData.get('nome'),
+            preco: parseFloat(formData.get('preco')) || 0
+        };
+
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${isEditing ? 'Salvando...' : 'Cadastrando...'}`;
+
+        try {
+            const url = isEditing 
+                ? `${SUPABASE_URL}/rest/v1/procedimentos?id=eq.${state.editingProcedure.id}`
+                : `${SUPABASE_URL}/rest/v1/procedimentos`;
+            
+            const res = await fetch(url, {
+                method: isEditing ? 'PATCH' : 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify(procedureData)
+            });
+
+            if (res.ok) {
+                alert(`✅ Procedimento ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
+                state.editingProcedure = null;
+                e.target.reset();
+                fetchProcedures();
+            } else {
+                alert('❌ Erro ao salvar procedimento.');
+            }
         } catch (err) {
-            alert('Erro ao excluir cliente.');
+            alert('❌ Erro de conexão.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = isEditing ? 'Salvar Alterações' : 'Cadastrar Procedimento';
         }
     };
 
+    window.editProcedure = (proc) => {
+        state.clientView = 'procedures';
+        state.editingProcedure = proc;
+        render();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.cancelEditProcedure = () => {
+        state.editingProcedure = null;
+        render();
+    };
+
+    window.deleteProcedure = async (id) => {
+        if (!confirm('Deseja excluir este procedimento?')) return;
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/procedimentos?id=eq.${id}`, {
+                method: 'DELETE',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+            });
+            fetchProcedures();
+        } catch (err) { alert('Erro ao excluir procedimento.'); }
+    };
+
+    const isClients = state.clientView === 'clients';
+
     return `
         <div class="p-4 sm:p-8 space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div class="flex justify-between items-start">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h2 class="text-2xl sm:text-3xl font-display font-bold">Gestão de Clientes</h2>
-                    <p class="text-slate-500 text-xs sm:text-sm mt-1">Cadastre seus clientes para facilitar o agendamento</p>
+                    <h2 class="text-2xl sm:text-3xl font-display font-bold">Gestão Local</h2>
+                    <p class="text-slate-500 text-xs sm:text-sm mt-1">Gerencie sua base de clientes e tabela de preços</p>
+                </div>
+
+                <!-- Toggle Switch -->
+                <div class="flex bg-dark-900 border border-white/5 p-1 rounded-2xl w-full sm:w-auto">
+                    <button onclick="window.switchClientView('clients')" 
+                            class="flex-1 sm:flex-none px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isClients ? 'bg-amber-500 text-dark-950 shadow-lg shadow-amber-500/20' : 'text-slate-500 hover:text-white'}">
+                        Clientes
+                    </button>
+                    <button onclick="window.switchClientView('procedures')" 
+                            class="flex-1 sm:flex-none px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isClients ? 'bg-amber-500 text-dark-950 shadow-lg shadow-amber-500/20' : 'text-slate-500 hover:text-white'}">
+                        Procedimentos
+                    </button>
                 </div>
             </div>
 
@@ -1074,47 +1199,72 @@ const ClientsPage = () => {
                 <!-- Cadastro / Edição -->
                 <div class="lg:col-span-1">
                     <div class="glass-card p-8 rounded-[2rem] border border-white/5 sticky top-24">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-lg font-bold text-amber-500 uppercase tracking-widest text-sm">
-                                ${state.editingClient ? 'Editar Cliente' : 'Novo Cadastro'}
-                            </h3>
-                            ${state.editingClient ? `
-                                <button onclick="window.cancelEditClient()" class="text-[10px] font-bold text-slate-500 hover:text-white uppercase tracking-widest">
-                                    Cancelar
-                                </button>
-                            ` : ''}
-                        </div>
-                        <form onsubmit="window.saveNewClient(event)" class="space-y-6">
-                            <div class="space-y-2">
-                                <label class="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Nome Completo</label>
-                                <input type="text" name="nome" required placeholder="Ex: Lucas Ferreira" 
-                                       value="${state.editingClient?.nome || ''}"
-                                       class="w-full bg-dark-900 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold">
+                        ${isClients ? `
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-lg font-bold text-amber-500 uppercase tracking-widest text-sm">
+                                    ${state.editingClient ? 'Editar Cliente' : 'Novo Cliente'}
+                                </h3>
+                                ${state.editingClient ? `
+                                    <button onclick="window.cancelEditClient()" class="text-[10px] font-bold text-slate-500 hover:text-white uppercase tracking-widest">
+                                        Cancelar
+                                    </button>
+                                ` : ''}
                             </div>
-                            <div class="space-y-2">
-                                <label class="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Telefone (Opcional)</label>
-                                <input type="text" name="telefone" placeholder="(00) 00000-0000"
-                                       value="${state.editingClient?.telefone || ''}"
-                                       class="w-full bg-dark-900 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold">
-                            </div>
-
-                            <div class="space-y-2">
-                                <label class="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Tipo de Plano</label>
-                                <div class="relative">
+                            <form onsubmit="window.saveNewClient(event)" class="space-y-6">
+                                <div class="space-y-2">
+                                    <label class="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Nome Completo</label>
+                                    <input type="text" name="nome" required placeholder="Ex: Lucas Ferreira" 
+                                           value="${state.editingClient?.nome || ''}"
+                                           class="w-full bg-dark-900 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Telefone (Opcional)</label>
+                                    <input type="text" name="telefone" placeholder="(00) 00000-0000"
+                                           value="${state.editingClient?.telefone || ''}"
+                                           class="w-full bg-dark-900 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Tipo de Plano</label>
                                     <select name="plano" 
                                             class="w-full bg-dark-900 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold appearance-none">
                                         <option value="Nenhum" ${state.editingClient?.plano === 'Nenhum' ? 'selected' : ''}>Nenhum Plano</option>
                                         <option value="Mensal" ${state.editingClient?.plano === 'Mensal' ? 'selected' : ''}>Plano Mensal</option>
                                         <option value="Anual" ${state.editingClient?.plano === 'Anual' ? 'selected' : ''}>Plano Anual</option>
                                     </select>
-                                    <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"></i>
                                 </div>
+                                <button type="submit" class="w-full bg-amber-500 text-dark-950 font-black py-4 rounded-xl hover:bg-amber-400 transition-all uppercase tracking-widest text-sm shadow-xl shadow-amber-500/10 active:scale-95">
+                                    ${state.editingClient ? 'Salvar Alterações' : 'Cadastrar Cliente'}
+                                </button>
+                            </form>
+                        ` : `
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-lg font-bold text-amber-500 uppercase tracking-widest text-sm">
+                                    ${state.editingProcedure ? 'Editar Serviço' : 'Novo Serviço'}
+                                </h3>
+                                ${state.editingProcedure ? `
+                                    <button onclick="window.cancelEditProcedure()" class="text-[10px] font-bold text-slate-500 hover:text-white uppercase tracking-widest">
+                                        Cancelar
+                                    </button>
+                                ` : ''}
                             </div>
-                            <button type="submit" 
-                                    class="w-full bg-amber-500 text-dark-950 font-black py-4 rounded-xl hover:bg-amber-400 transition-all uppercase tracking-widest text-sm shadow-xl shadow-amber-500/10 active:scale-95">
-                                ${state.editingClient ? 'Salvar Alterações' : 'Cadastrar Cliente'}
-                            </button>
-                        </form>
+                            <form onsubmit="window.saveProcedure(event)" class="space-y-6">
+                                <div class="space-y-2">
+                                    <label class="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Nome do Serviço</label>
+                                    <input type="text" name="nome" required placeholder="Ex: Corte Degradê" 
+                                           value="${state.editingProcedure?.nome || ''}"
+                                           class="w-full bg-dark-900 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Preço Sugerido (R$ - Opcional)</label>
+                                    <input type="number" step="0.01" name="preco" placeholder="0,00"
+                                           value="${state.editingProcedure?.preco || ''}"
+                                           class="w-full bg-dark-900 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold">
+                                </div>
+                                <button type="submit" class="w-full bg-amber-500 text-dark-950 font-black py-4 rounded-xl hover:bg-amber-400 transition-all uppercase tracking-widest text-sm shadow-xl shadow-amber-500/10 active:scale-95">
+                                    ${state.editingProcedure ? 'Salvar Alterações' : 'Adicionar Serviço'}
+                                </button>
+                            </form>
+                        `}
                     </div>
                 </div>
 
@@ -1123,87 +1273,125 @@ const ClientsPage = () => {
                     <div class="glass-card rounded-[2rem] overflow-hidden border border-white/5">
                         <div class="p-6 bg-white/[0.02] border-b border-white/5 flex justify-between items-center">
                             <h3 class="font-bold flex items-center">
-                                <i class="fas fa-users-viewfinder mr-3 text-amber-500"></i>
-                                Clientes Registrados (${state.clients.length})
+                                <i class="fas ${isClients ? 'fa-users-viewfinder' : 'fa-list-check'} mr-3 text-amber-500"></i>
+                                ${isClients ? `Clientes Registrados (${state.clients.length})` : `Procedimentos Ativos (${state.procedures.length})`}
                             </h3>
-                            <button onclick="fetchClients()" class="w-10 h-10 rounded-xl bg-white/5 hover:bg-amber-500/10 hover:text-amber-500 transition-all flex items-center justify-center">
+                            <button onclick="${isClients ? 'fetchClients()' : 'fetchProcedures()'}" class="w-10 h-10 rounded-xl bg-white/5 hover:bg-amber-500/10 hover:text-amber-500 transition-all flex items-center justify-center">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
                         </div>
+                        
                         <div class="max-h-[600px] overflow-y-auto custom-scroll">
-                            <div class="hidden sm:block">
-                                <table class="w-full text-left">
-                                    <thead class="bg-white/[0.01] text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                        <tr>
-                                            <th class="px-8 py-4 border-b border-white/5">Nome</th>
-                                            <th class="px-8 py-4 border-b border-white/5">Plano</th>
-                                            <th class="px-8 py-4 border-b border-white/5">Telefone</th>
-                                            <th class="px-8 py-4 border-b border-white/5 text-right">Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-white/5 text-sm">
-                                        ${state.clients.map(c => `
-                                            <tr class="hover:bg-white/[0.01] transition-colors group">
-                                                <td class="px-8 py-4 font-bold text-white">${c.nome}</td>
-                                                <td class="px-8 py-4">
-                                                    <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest
-                                                        ${c.plano === 'Mensal' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 
-                                                          c.plano === 'Anual' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 
-                                                          'text-slate-500 border border-white/5'}">
-                                                        ${c.plano || 'Nenhum'}
-                                                    </span>
-                                                </td>
-                                                <td class="px-8 py-4 text-slate-400 font-medium">${c.telefone || '---'}</td>
-                                                <td class="px-8 py-4 text-right">
-                                                    <div class="flex justify-end space-x-2">
-                                                        <button onclick='window.editClient(${JSON.stringify(c)})' 
-                                                                class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all transform active:scale-90">
-                                                            <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        <button onclick="window.deleteClient(${c.id})" 
-                                                                class="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all transform active:scale-90">
-                                                            <i class="fas fa-trash-alt"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
+                            ${isClients ? `
+                                <!-- Table Clients -->
+                                <div class="hidden sm:block">
+                                    <table class="w-full text-left">
+                                        <thead class="bg-white/[0.01] text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                            <tr>
+                                                <th class="px-8 py-4 border-b border-white/5">Nome</th>
+                                                <th class="px-8 py-4 border-b border-white/5">Plano</th>
+                                                <th class="px-8 py-4 border-b border-white/5">Telefone</th>
+                                                <th class="px-8 py-4 border-b border-white/5 text-right">Ações</th>
                                             </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                            
-                            <!-- Mobile Client Cards -->
-                            <div class="sm:hidden divide-y divide-white/5">
-                                ${state.clients.map(c => `
-                                    <div class="p-6 space-y-4">
-                                        <div class="flex justify-between items-start">
+                                        </thead>
+                                        <tbody class="divide-y divide-white/5 text-sm">
+                                            ${state.clients.map(c => `
+                                                <tr class="hover:bg-white/[0.01] transition-colors group">
+                                                    <td class="px-8 py-4 font-bold text-white">${c.nome}</td>
+                                                    <td class="px-8 py-4">
+                                                        <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest
+                                                            ${c.plano === 'Mensal' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 
+                                                              c.plano === 'Anual' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 
+                                                              'text-slate-500 border border-white/5'}">
+                                                            ${c.plano || 'Nenhum'}
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-8 py-4 text-slate-400 font-medium">${c.telefone || '---'}</td>
+                                                    <td class="px-8 py-4 text-right">
+                                                        <div class="flex justify-end space-x-2">
+                                                            <button onclick='window.editClient(${JSON.stringify(c)})' 
+                                                                    class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all transform active:scale-90">
+                                                                <i class="fas fa-edit"></i>
+                                                            </button>
+                                                            <button onclick="window.deleteClient(${c.id})" 
+                                                                    class="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all transform active:scale-90">
+                                                                <i class="fas fa-trash-alt"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <!-- Mobile Client Cards -->
+                                <div class="sm:hidden divide-y divide-white/5">
+                                    ${state.clients.map(c => `
+                                        <div class="p-6 space-y-4">
+                                            <div class="flex justify-between items-start">
+                                                <div><p class="text-lg font-bold text-white">${c.nome}</p></div>
+                                                <div class="flex space-x-2">
+                                                    <button onclick='window.editClient(${JSON.stringify(c)})' class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center"><i class="fas fa-edit"></i></button>
+                                                    <button onclick="window.deleteClient(${c.id})" class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center"><i class="fas fa-trash-alt"></i></button>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center space-x-4">
+                                                <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${c.plano === 'Mensal' ? 'bg-amber-500/10 text-amber-500' : 'text-slate-500 border border-white/5'}">${c.plano || 'Nenhum'}</span>
+                                                <span class="text-xs text-slate-500">${c.telefone || ''}</span>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : `
+                                <!-- Table Procedures -->
+                                <div class="hidden sm:block">
+                                    <table class="w-full text-left">
+                                        <thead class="bg-white/[0.01] text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                            <tr>
+                                                <th class="px-8 py-4 border-b border-white/5">Serviço</th>
+                                                <th class="px-8 py-4 border-b border-white/5">Preço Base</th>
+                                                <th class="px-8 py-4 border-b border-white/5 text-right">Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-white/5 text-sm">
+                                            ${state.procedures.map(p => `
+                                                <tr class="hover:bg-white/[0.01] transition-colors group">
+                                                    <td class="px-8 py-4 font-bold text-white">${p.nome}</td>
+                                                    <td class="px-8 py-4 text-emerald-400 font-black">R$ ${p.preco.toFixed(2).replace('.', ',')}</td>
+                                                    <td class="px-8 py-4 text-right">
+                                                        <div class="flex justify-end space-x-2">
+                                                            <button onclick='window.editProcedure(${JSON.stringify(p)})' 
+                                                                    class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all transform active:scale-90">
+                                                                <i class="fas fa-edit"></i>
+                                                            </button>
+                                                            <button onclick="window.deleteProcedure(${p.id})" 
+                                                                    class="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all transform active:scale-90">
+                                                                <i class="fas fa-trash-alt"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <!-- Mobile Procedure Cards -->
+                                <div class="sm:hidden divide-y divide-white/5">
+                                    ${state.procedures.map(p => `
+                                        <div class="p-6 flex justify-between items-center">
                                             <div>
-                                                <p class="text-lg font-bold text-white">${c.nome}</p>
-                                                <p class="text-xs text-slate-500 font-medium">${c.telefone || 'Sem telefone'}</p>
+                                                <p class="text-lg font-bold text-white">${p.nome}</p>
+                                                <p class="text-emerald-400 font-black">R$ ${p.preco.toFixed(2).replace('.', ',')}</p>
                                             </div>
                                             <div class="flex space-x-2">
-                                                <button onclick='window.editClient(${JSON.stringify(c)})' 
-                                                        class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
-                                                    <i class="fas fa-edit text-sm"></i>
-                                                </button>
-                                                <button onclick="window.deleteClient(${c.id})" 
-                                                        class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center">
-                                                    <i class="fas fa-trash-alt text-sm"></i>
-                                                </button>
+                                                <button onclick='window.editProcedure(${JSON.stringify(p)})' class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center"><i class="fas fa-edit"></i></button>
+                                                <button onclick="window.deleteProcedure(${p.id})" class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center"><i class="fas fa-trash-alt"></i></button>
                                             </div>
                                         </div>
-                                        <div class="flex">
-                                            <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest
-                                                ${c.plano === 'Mensal' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 
-                                                  c.plano === 'Anual' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 
-                                                  'text-slate-500 border border-white/5'}">
-                                                ${c.plano || 'Nenhum'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                                ${state.clients.length === 0 ? '<div class="p-10 text-center text-slate-500 font-bold italic text-sm">Nenhum cliente cadastrado.</div>' : ''}
-                            </div>
+                                    `).join('')}
+                                </div>
+                            `}
+                            ${(isClients ? state.clients.length : state.procedures.length) === 0 ? '<div class="p-20 text-center text-slate-500 font-bold italic">Nenhum registro encontrado.</div>' : ''}
                         </div>
                     </div>
                 </div>
@@ -1354,6 +1542,7 @@ window.navigate = navigate;
 document.addEventListener('DOMContentLoaded', () => {
     applyTheme();
     fetchClients();
+    fetchProcedures();
     render();
     if (state.sheetUrl) {
         syncFromSheet(state.sheetUrl);
