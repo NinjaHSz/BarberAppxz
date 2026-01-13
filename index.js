@@ -1,8 +1,18 @@
-// --- Configuração Supabase ---
+/**
+ * BARBERAPP - SISTEMA DE GESTÃO PARA BARBEARIAS
+ * Arquivo: index.js
+ * Desenvolvido por Antigravity (Google DeepMind)
+ */
+
+// ==========================================
+// 1. CONFIGURAÇÕES E CREDENCIAIS
+// ==========================================
 const SUPABASE_URL = 'https://wglnszbmwmddwefzqtln.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndnbG5zemJtd21kZHdlZnpxdGxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgyODA0NDQsImV4cCI6MjA4Mzg1NjQ0NH0.9NHyJStWvF3nxx31y_f_I65MZEDXZlKLvY318EJb43w';
 
-// --- Global State ---
+// ==========================================
+// 2. ESTADO GLOBAL DA APLICAÇÃO (Single Source of Truth)
+// ==========================================
 const state = {
     currentPage: 'dashboard',
     isIntegrated: localStorage.getItem('isIntegrated') === 'true',
@@ -33,10 +43,17 @@ const state = {
     editingClient: null,
     editingProcedure: null,
     clientView: 'clients', // 'clients' ou 'procedures'
-    procedures: []
+    procedures: [],
+    clientSearch: '',
+    isClientDropdownOpen: false,
+    showEmptySlots: true,
+    managementSearch: ''
 };
 
-// --- Helper Functions ---
+// ==========================================
+// 3. FUNÇÕES AUXILIARES (Helpers & UI)
+// ==========================================
+
 
 /**
  * Converte Hex para RGB para uso nas variáveis CSS
@@ -55,6 +72,9 @@ function applyTheme() {
     localStorage.setItem('themeAccentRgb', state.theme.accentRgb);
 }
 
+// ==========================================
+// 4. COMUNICAÇÃO COM API (Supabase & Google Sheets)
+// ==========================================
 /**
  * Busca clientes cadastrados no Supabase
  */
@@ -378,23 +398,34 @@ function updateInternalStats() {
     state.barbers = [{ name: 'Faturamento Período', revenue: monthly, score: 100 }];
 }
 
-// --- Router and Navigation ---
+// ==========================================
+// 5. ROTEAMENTO E NAVEGAÇÃO
+// ==========================================
+
+/**
+ * Altera a página atual e re-renderiza a UI
+ * @param {string} page - Nome da página (dashboard, records, manage, etc)
+ */
 function navigate(page) {
     state.currentPage = page;
+    state.clientSearch = ''; // Limpa a busca ao navegar
+    state.isClientDropdownOpen = false;
     if (page !== 'manage') state.editingRecord = null;
     render();
 }
-
-// --- Components ---
+// ==========================================
+// 6. COMPONENTES DE INTERFACE (UI)
+// ==========================================
 
 const Sidebar = () => `
     <aside class="hidden md:flex w-64 bg-dark-900 border-r border-white/5 flex flex-col h-full transition-all duration-300">
-        <div class="p-6">
-            <h1 class="text-2xl font-display font-extrabold text-amber-500 tracking-tighter italic">
-                BARBER<span class="text-white">BI</span>
+        <div class="p-6 overflow-hidden">
+            <h1 class="text-xl font-display font-extrabold text-amber-500 tracking-tighter italic whitespace-nowrap">
+                LUCAS <span class="text-white"> DO CORTE</span>
             </h1>
         </div>
         <nav class="flex-1 px-4 space-y-2 mt-4">
+            <!-- Itens do Menu Lateral -->
             ${NavLink('dashboard', 'fa-chart-line', 'Dashboard')}
             ${NavLink('records', 'fa-table', 'Agendamentos')}
             ${NavLink('manage', 'fa-calendar-plus', 'Agendar')}
@@ -407,7 +438,9 @@ const Sidebar = () => `
                     <img src="assets/logo.png" class="w-full h-full object-cover" onerror="this.src='https://ui-avatars.com/api/?name=Lucas+do+Corte&background=F59E0B&color=000'">
                 </div>
                 <div class="flex-1 min-w-0">
+                    <!-- Nome do Barbeiro/Perfil -->
                     <p class="text-sm font-semibold truncate text-white">Lucas do Corte</p>
+                    <!-- Label de Status da Conta -->
                     <p class="text-[10px] text-amber-500 font-bold uppercase tracking-widest">Premium Plan</p>
                 </div>
             </div>
@@ -444,6 +477,7 @@ const MobileNavLink = (page, icon, label) => {
                 class="flex flex-col items-center space-y-1 transition-all
                 ${isActive ? 'text-amber-500' : 'text-slate-500'}">
             <i class="fas ${icon} text-lg"></i>
+            <!-- Label do Menu Mobile -->
             <span class="text-[9px] font-black uppercase tracking-tighter">${label}</span>
         </button>
     `;
@@ -505,7 +539,7 @@ const Header = () => {
                 
                 <!-- Logo Mobile -->
                 <div class="md:hidden flex items-center">
-                    <h1 class="text-lg font-display font-extrabold text-amber-500 italic">B<span class="text-white">BI</span></h1>
+                    <h1 class="text-base font-display font-extrabold text-amber-500 italic whitespace-nowrap">LUCAS <span class="text-white">DO CORTE</span></h1>
                 </div>
 
                 <button onclick="window.syncAll()" class="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-white/5 hover:bg-amber-500/10 hover:text-amber-500 transition-all flex items-center justify-center border border-white/5">
@@ -650,16 +684,18 @@ const Dashboard = () => {
         <div class="p-4 sm:p-8 space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div class="flex justify-between items-end">
                 <div>
+                    <!-- Título Principal Dashboard -->
                     <h2 class="text-2xl sm:text-3xl font-display font-bold">Lucas do Corte - BI</h2>
+                    <!-- Subtítulo ou Descrição -->
                     <p class="text-slate-500 text-xs sm:text-sm mt-1">Gestão financeira e performance estratégica</p>
                 </div>
             </div>
 
             <!-- KPIs -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                ${KPICard('Faturamento Diário', state.kpis.diario, 'fa-calendar-day', 'grow', 'Hoje')}
-                ${KPICard('Faturamento Mensal', state.kpis.mensal, 'fa-calendar-days', 'grow', 'Mês Atual')}
-                ${KPICard('Faturamento Anual', state.kpis.anual, 'fa-calendar-check', 'grow', 'Ano Corrente')}
+                ${KPICard('Faturamento do Dia', state.kpis.diario, 'fa-calendar-day')}
+                ${KPICard('Faturamento do Mês', state.kpis.mensal, 'fa-calendar-days')}
+                ${KPICard('Faturamento do Ano', state.kpis.anual, 'fa-calendar-check')}
             </div>
 
             <!-- Charts -->
@@ -690,23 +726,25 @@ const Dashboard = () => {
     `;
 };
 
-const KPICard = (title, value, icon, trend, trendVal) => `
+const KPICard = (title, value, icon) => `
     <div class="glass-card p-5 sm:p-7 rounded-[2rem] group hover:border-amber-500/30 transition-all duration-500 relative overflow-hidden">
         <div class="absolute -right-4 -top-4 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/10 transition-all"></div>
         <div class="flex justify-between items-start mb-4 sm:mb-6">
             <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
                 <i class="fas ${icon} text-xl sm:text-2xl"></i>
             </div>
-            <div class="flex flex-col items-end">
-                <span class="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${trend === 'grow' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}">
-                    ${trendVal}
-                </span>
-            </div>
         </div>
         <p class="text-slate-500 text-[10px] sm:text-xs font-bold uppercase tracking-widest">${title}</p>
         <h2 class="text-2xl sm:text-4xl font-display font-extrabold mt-1 sm:mt-2 tracking-tight">${value}</h2>
     </div>
 `;
+// ==========================================
+// 7. PÁGINAS DA APLICAÇÃO
+// ==========================================
+
+/**
+ * PÁGINA: Histórico de Agendamentos (Tabela/Planilha)
+ */
 const RecordsPage = () => {
     if (!state.isIntegrated) {
         return `
@@ -726,12 +764,69 @@ const RecordsPage = () => {
     const monthPrefix = `${targetYear}-${targetMonth}`;
     const dayPrefix = `${monthPrefix}-${String(targetDay).padStart(2, '0')}`;
 
-    const filteredRecords = state.records.filter(r => {
-        const matchesDate = (targetDay === 0) ? r.date.startsWith(monthPrefix) : r.date === dayPrefix;
-        const matchesSearch = r.client.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-                             r.service.toLowerCase().includes(state.searchTerm.toLowerCase());
-        return matchesDate && matchesSearch;
-    });
+    // Lista de horários padrão para visualização em "planilha"
+    const standardTimes = [];
+    let currentMinutes = 7 * 60 + 20; // 07:20 em minutos
+    const endMinutes = 22 * 60;       // 22:00 em minutos
+
+    while (currentMinutes <= endMinutes) {
+        const h = Math.floor(currentMinutes / 60);
+        const m = currentMinutes % 60;
+        standardTimes.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+        currentMinutes += 40; // Intervalo de 40 minutos
+    }
+
+    let recordsToDisplay = [];
+    
+    if (targetDay === 0) {
+        // Se for "Mês Inteiro", mostramos apenas o que existe (comportamento original)
+        recordsToDisplay = state.records.filter(r => r.date.startsWith(monthPrefix))
+            .filter(r => r.client.toLowerCase().includes(state.searchTerm.toLowerCase()) || 
+                         r.service.toLowerCase().includes(state.searchTerm.toLowerCase()));
+    } else {
+        // Se for um dia específico, usamos a lógica de planilha
+        const existingForDay = state.records.filter(r => r.date === dayPrefix);
+        
+        // Se houver busca, filtramos apenas os existentes
+        if (state.searchTerm) {
+            recordsToDisplay = existingForDay.filter(r => 
+                r.client.toLowerCase().includes(state.searchTerm.toLowerCase()) || 
+                r.service.toLowerCase().includes(state.searchTerm.toLowerCase())
+            );
+        } else {
+            // Criamos um set de IDs já exibidos para não duplicar
+            const displayedIds = new Set();
+            recordsToDisplay = [];
+
+            // Primeiro, iteramos pelos horários padrão
+            standardTimes.forEach(time => {
+                const matches = existingForDay.filter(r => r.time.startsWith(time.substring(0, 5)));
+                if (matches.length > 0) {
+                    matches.forEach(m => {
+                        recordsToDisplay.push(m);
+                        displayedIds.add(m.id);
+                    });
+                } else {
+                    recordsToDisplay.push({ time, client: '---', service: '---', value: 0, paymentMethod: '---', isEmpty: true });
+                }
+            });
+
+            // Depois, adicionamos qualquer registro que sobrou (horários fora do padrão)
+            existingForDay.forEach(r => {
+                if (!displayedIds.has(r.id)) {
+                    recordsToDisplay.push(r);
+                }
+            });
+
+            // Ordena por horário final
+            recordsToDisplay.sort((a, b) => a.time.localeCompare(b.time));
+
+            // Filtra espaços vazios se o usuário desejar
+            if (!state.showEmptySlots) {
+                recordsToDisplay = recordsToDisplay.filter(r => !r.isEmpty);
+            }
+        }
+    }
 
     window.editAppointment = (id) => {
         const record = state.records.find(r => r.id === id);
@@ -755,7 +850,6 @@ const RecordsPage = () => {
             });
 
             if (res.ok) {
-                alert('✅ Agendamento cancelado!');
                 syncFromSheet(state.sheetUrl); // Recarrega os dados
             } else {
                 alert('❌ Erro ao cancelar agendamento.');
@@ -767,16 +861,12 @@ const RecordsPage = () => {
 
     window.handleSearch = (e) => {
         state.searchTerm = e.value;
-        const body = document.getElementById('tableBody');
-        if (body) {
-            const currentFiltered = state.records.filter(r => {
-                const matchesDate = targetDay === 0 ? r.date.startsWith(monthPrefix) : r.date === dayPrefix;
-                const matchesSearch = r.client.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-                                     r.service.toLowerCase().includes(state.searchTerm.toLowerCase());
-                return matchesDate && matchesSearch;
-            });
-            body.innerHTML = currentFiltered.map(r => RecordRow(r)).join('');
-        }
+        render(); // Re-renderiza para aplicar a lógica de planilha/lista
+    };
+
+    window.toggleEmptySlots = () => {
+        state.showEmptySlots = !state.showEmptySlots;
+        render();
     };
 
     return `
@@ -786,12 +876,21 @@ const RecordsPage = () => {
                     <h2 class="text-2xl sm:text-3xl font-display font-bold">Histórico de Agendamentos</h2>
                     <p class="text-slate-500 text-xs sm:text-sm mt-1">Sincronização via Google Sheets</p>
                 </div>
-                <div class="relative w-full sm:w-auto">
-                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-                    <input type="text" 
-                           placeholder="Buscar agendamento..." 
-                           oninput="window.handleSearch(this)"
-                           class="bg-dark-900 border border-white/5 py-2.5 pl-11 pr-4 rounded-xl text-sm outline-none focus:border-amber-500/50 w-full sm:w-80 transition-all font-medium">
+                <div class="relative w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+                    <button onclick="window.toggleEmptySlots()" 
+                            class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-white/5 bg-dark-900/50 hover:bg-amber-500/10 transition-all text-[10px] font-black uppercase tracking-widest ${state.showEmptySlots ? 'text-amber-500' : 'text-slate-500'}">
+                        <i class="fas ${state.showEmptySlots ? 'fa-eye-slash' : 'fa-eye'}"></i>
+                        ${state.showEmptySlots ? 'Ocultar Vazios' : 'Mostrar Vazios'}
+                    </button>
+                    <div class="relative flex-1 sm:w-80">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                        <input type="text" 
+                               id="recordsSearchInput"
+                               placeholder="Buscar agendamento..." 
+                               oninput="window.handleSearch(this)"
+                               value="${state.searchTerm}"
+                               class="bg-dark-900 border border-white/5 py-2.5 pl-11 pr-4 rounded-xl text-sm outline-none focus:border-amber-500/50 w-full transition-all font-medium">
+                    </div>
                 </div>
             </div>
 
@@ -808,7 +907,7 @@ const RecordsPage = () => {
                 </div>
 
                 <div id="tableBody" class="divide-y divide-white/5">
-                    ${filteredRecords.map(r => RecordRow(r)).join('')}
+                    ${recordsToDisplay.map(r => RecordRow(r)).join('')}
                 </div>
             </div>
         </div>
@@ -816,53 +915,138 @@ const RecordsPage = () => {
 };
 
 const RecordRow = (record) => {
+    const isEmpty = !!record.isEmpty;
+    const isDayZero = state.filters.day === 0;
+
     return `
-        <div class="flex flex-col md:flex-row items-center md:items-center px-6 md:px-8 py-4 md:py-4 gap-4 md:gap-0 hover:bg-white/[0.01] transition-colors group relative md:static glass-card md:bg-transparent rounded-2xl md:rounded-none m-2 md:m-0 border md:border-0 border-white/5">
-            <div class="w-full md:w-20 text-xs md:text-sm text-amber-500 md:text-slate-400 font-black md:font-medium flex justify-between md:block">
+        <div class="flex flex-col md:flex-row items-center md:items-center px-6 md:px-8 py-4 md:py-4 gap-4 md:gap-0 hover:bg-white/[0.01] transition-colors group relative md:static glass-card md:bg-transparent rounded-2xl md:rounded-none m-2 md:m-0 border md:border-0 border-white/5 ${isEmpty ? 'opacity-40' : ''}">
+            <div class="w-full md:w-20 text-xs md:text-sm ${isEmpty ? 'text-slate-500' : 'text-amber-500 md:text-slate-400'} font-black md:font-medium flex justify-between md:block">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Horário:</span>
-                ${record.time}
+                ${record.time.substring(0, 5)}
             </div>
             
             <div class="w-full md:flex-1 md:px-4 text-sm md:text-sm font-bold md:font-semibold flex justify-between md:block">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Cliente:</span>
-                <div class="truncate transition-colors group-hover:text-amber-500">${record.client}</div>
+                <div class="truncate transition-colors ${!isEmpty ? 'group-hover:text-amber-500' : 'text-slate-600'}">${record.client}</div>
             </div>
 
             <div class="w-full md:flex-1 md:px-4 text-xs md:text-sm text-slate-400 flex justify-between md:block">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Serviço:</span>
-                <div class="truncate">${record.service}</div>
+                <div class="truncate ${isEmpty ? 'text-slate-600' : ''}">${record.service}</div>
             </div>
 
-            <div class="w-full md:w-28 text-sm md:text-sm font-bold md:font-bold text-white md:text-amber-500/90 flex justify-between md:block md:text-center">
+            <div class="w-full md:w-28 text-sm md:text-sm font-bold md:font-bold ${isEmpty ? 'text-slate-600' : 'text-white md:text-amber-500/90'} flex justify-between md:block md:text-center">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Valor:</span>
-                R$ ${record.value.toFixed(2)}
+                ${isEmpty ? '---' : `R$ ${record.value.toFixed(2)}`}
             </div>
 
             <div class="w-full md:w-32 flex justify-between md:justify-center items-center">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Pagamento:</span>
-                <span class="px-2 py-0.5 rounded-lg text-[10px] font-black border border-white/5 bg-white/[0.03] text-slate-500 uppercase tracking-tighter">
+                <span class="px-2 py-0.5 rounded-lg text-[10px] font-black border border-white/5 bg-white/[0.03] text-slate-500 uppercase tracking-tighter ${isEmpty ? 'opacity-30' : ''}">
                     ${record.paymentMethod}
                 </span>
             </div>
 
             <div class="w-full md:w-24 flex justify-end gap-2 pt-4 md:pt-0 border-t md:border-0 border-white/5">
-                <button onclick="window.editAppointment(${record.id})" 
-                        class="w-9 h-9 md:w-8 md:h-8 rounded-xl bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all transform active:scale-95 shadow-sm flex items-center justify-center">
-                    <i class="fas fa-edit text-xs"></i>
-                </button>
-                <button onclick="window.cancelAppointment(${record.id})" 
-                        class="w-9 h-9 md:w-8 md:h-8 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all transform active:scale-95 shadow-sm flex items-center justify-center">
-                    <i class="fas fa-trash-can text-xs"></i>
-                </button>
+                ${!isEmpty ? `
+                    <button onclick="window.editAppointment(${record.id})" 
+                            class="w-9 h-9 md:w-8 md:h-8 rounded-xl bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all transform active:scale-95 shadow-sm flex items-center justify-center">
+                        <i class="fas fa-edit text-xs"></i>
+                    </button>
+                    <button onclick="window.cancelAppointment(${record.id})" 
+                            class="w-9 h-9 md:w-8 md:h-8 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all transform active:scale-95 shadow-sm flex items-center justify-center">
+                        <i class="fas fa-trash-can text-xs"></i>
+                    </button>
+                ` : `
+                    <button onclick="window.navigate('manage')" 
+                            class="w-full md:w-auto px-4 py-2 md:py-1 rounded-lg bg-white/5 text-slate-500 hover:bg-amber-500/10 hover:text-amber-500 text-[10px] font-bold uppercase transition-all">
+                        Agendar
+                    </button>
+                `}
             </div>
         </div>
     `;
 };
 
+/**
+ * PÁGINA: Gerenciar Agendamento (Novo ou Editar)
+ */
 const ManagePage = () => {
     if (!state.isIntegrated) return SetupPage();
 
     const isEditing = !!state.editingRecord;
+
+    // Inicializa a busca se estiver editando
+    if (isEditing && !state.clientSearch) {
+        state.clientSearch = state.editingRecord.client || state.editingRecord.cliente;
+    }
+
+// --- Helper para Pesquisa de Clientes ---
+window.openClientDropdown = () => {
+    const dropdown = document.getElementById('clientDropdown');
+    const input = document.getElementById('clientSearchInput');
+    if (dropdown && input) {
+        const val = input.value;
+        const filtered = state.clients.filter(c => c.nome.toLowerCase().includes(val.toLowerCase()));
+        
+        dropdown.innerHTML = filtered.map(c => `
+            <div onclick="window.selectClient('${c.nome.replace(/'/g, "\\'")}')" 
+                 class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
+                <span class="font-bold text-slate-300 group-hover:text-white">${c.nome}</span>
+                ${c.plano && c.plano !== 'Nenhum' ? `<span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">${c.plano}</span>` : ''}
+            </div>
+        `).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum cliente encontrado.</div>`;
+        
+        dropdown.classList.remove('hidden');
+        state.isClientDropdownOpen = true;
+    }
+};
+
+window.filterClients = (val) => {
+    state.clientSearch = val;
+    const dropdown = document.getElementById('clientDropdown');
+    const hiddenInput = document.querySelector('input[name="client"]');
+    if (hiddenInput) hiddenInput.value = val;
+    
+    if (dropdown) {
+        const filtered = state.clients.filter(c => c.nome.toLowerCase().includes(val.toLowerCase()));
+        dropdown.innerHTML = filtered.map(c => `
+            <div onclick="window.selectClient('${c.nome.replace(/'/g, "\\'")}')" 
+                 class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
+                <span class="font-bold text-slate-300 group-hover:text-white">${c.nome}</span>
+                ${c.plano && c.plano !== 'Nenhum' ? `<span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">${c.plano}</span>` : ''}
+            </div>
+        `).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum cliente encontrado.</div>`;
+        dropdown.classList.remove('hidden');
+    }
+};
+
+window.selectClient = (name) => {
+    state.clientSearch = name;
+    state.isClientDropdownOpen = false;
+    
+    const input = document.getElementById('clientSearchInput');
+    const hiddenInput = document.querySelector('input[name="client"]');
+    const dropdown = document.getElementById('clientDropdown');
+    
+    if (input) input.value = name;
+    if (hiddenInput) hiddenInput.value = name;
+    if (dropdown) dropdown.classList.add('hidden');
+};
+
+// Global mousedown once
+if (!window.hasGlobalClientPickerListener) {
+    document.addEventListener('mousedown', (e) => {
+        const dropdown = document.getElementById('clientDropdown');
+        if (dropdown && !dropdown.classList.contains('hidden')) {
+            if (!e.target.closest('#clientSearchInput') && !e.target.closest('#clientDropdown')) {
+                dropdown.classList.add('hidden');
+                state.isClientDropdownOpen = false;
+            }
+        }
+    });
+    window.hasGlobalClientPickerListener = true;
+}
 
     window.updatePriceByService = (serviceName) => {
         const proc = state.procedures.find(p => p.nome === serviceName);
@@ -906,7 +1090,6 @@ const ManagePage = () => {
             });
 
             if (res.ok) {
-                alert(isEditing ? '✅ Agendamento atualizado!' : '✅ Agendamento salvo com sucesso!');
                 if (isEditing) {
                     state.editingRecord = null;
                     state.currentPage = 'records';
@@ -965,12 +1148,25 @@ const ManagePage = () => {
                     <div class="space-y-2 col-span-1 md:col-span-2">
                         <label class="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">Cliente</label>
                         <div class="relative">
-                            <select name="client" required
-                                    class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold appearance-none">
-                                <option value="">Selecione um cliente...</option>
-                                ${state.clients.map(c => `<option value="${c.nome}" ${(initialValues.client || initialValues.cliente) === c.nome ? 'selected' : ''}>${c.nome}</option>`).join('')}
-                            </select>
-                            <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"></i>
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                            <input type="text" 
+                                   id="clientSearchInput"
+                                   placeholder="Digite para pesquisar..."
+                                   autocomplete="off"
+                                   required
+                                   value="${state.clientSearch || ''}"
+                                   onfocus="window.openClientDropdown()"
+                                   oninput="window.filterClients(this.value)"
+                                   onkeydown="if(event.key === 'Enter') event.preventDefault()"
+                                   class="w-full bg-dark-900 border border-white/5 py-4 pl-12 pr-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold">
+                            
+                            <!-- Hidden input to store the final selected value for the form -->
+                            <input type="hidden" name="client" value="${state.clientSearch || ''}">
+
+                             <!-- Dropdown de Sugestões -->
+                            <div id="clientDropdown" class="hidden absolute z-50 left-0 right-0 mt-2 bg-dark-900 border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto custom-scroll p-2">
+                                <!-- Conteúdo gerado via JS em filterClients ou openClientDropdown -->
+                            </div>
                         </div>
                     </div>
 
@@ -1000,7 +1196,7 @@ const ManagePage = () => {
                         <div class="relative">
                             <select name="payment" required
                                     class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold appearance-none">
-                                ${['PIX', 'DINHEIRO', 'CARTÃO', 'PLANO MENSAL'].map(p => `
+                                ${['PIX', 'DINHEIRO', 'CARTÃO', 'PLANO MENSAL', 'CORTESIA'].map(p => `
                                     <option value="${p}" ${(initialValues.paymentMethod || initialValues.forma_pagamento) === p ? 'selected' : ''}>${p}${p === 'CARTÃO' ? ' DE CRÉDITO/DÉBITO' : ''}</option>
                                 `).join('')}
                             </select>
@@ -1020,12 +1216,21 @@ const ManagePage = () => {
     `;
 };
 
+/**
+ * PÁGINA: Gestão Local (Clientes e Procedimentos)
+ */
 const ClientsPage = () => {
     // --- View Toggle ---
     window.switchClientView = (view) => {
         state.clientView = view;
         state.editingClient = null;
         state.editingProcedure = null;
+        state.managementSearch = '';
+        render();
+    };
+
+    window.handleManagementSearch = (val) => {
+        state.managementSearch = val;
         render();
     };
 
@@ -1062,7 +1267,6 @@ const ClientsPage = () => {
             });
 
             if (res.ok) {
-                alert(`✅ Cliente ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
                 state.editingClient = null;
                 e.target.reset();
                 fetchClients();
@@ -1134,7 +1338,6 @@ const ClientsPage = () => {
             });
 
             if (res.ok) {
-                alert(`✅ Procedimento ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
                 state.editingProcedure = null;
                 e.target.reset();
                 fetchProcedures();
@@ -1232,6 +1435,7 @@ const ClientsPage = () => {
                                         <option value="Anual" ${state.editingClient?.plano === 'Anual' ? 'selected' : ''}>Plano Anual</option>
                                     </select>
                                 </div>
+                                <!-- Botão Final de Cadastro -->
                                 <button type="submit" class="w-full bg-amber-500 text-dark-950 font-black py-4 rounded-xl hover:bg-amber-400 transition-all uppercase tracking-widest text-sm shadow-xl shadow-amber-500/10 active:scale-95">
                                     ${state.editingClient ? 'Salvar Alterações' : 'Cadastrar Cliente'}
                                 </button>
@@ -1271,14 +1475,25 @@ const ClientsPage = () => {
                 <!-- Lista -->
                 <div class="lg:col-span-2">
                     <div class="glass-card rounded-[2rem] overflow-hidden border border-white/5">
-                        <div class="p-6 bg-white/[0.02] border-b border-white/5 flex justify-between items-center">
-                            <h3 class="font-bold flex items-center">
-                                <i class="fas ${isClients ? 'fa-users-viewfinder' : 'fa-list-check'} mr-3 text-amber-500"></i>
-                                ${isClients ? `Clientes Registrados (${state.clients.length})` : `Procedimentos Ativos (${state.procedures.length})`}
-                            </h3>
-                            <button onclick="${isClients ? 'fetchClients()' : 'fetchProcedures()'}" class="w-10 h-10 rounded-xl bg-white/5 hover:bg-amber-500/10 hover:text-amber-500 transition-all flex items-center justify-center">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
+                        <div class="p-6 bg-white/[0.02] border-b border-white/5 space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h3 class="font-bold flex items-center">
+                                    <i class="fas ${isClients ? 'fa-users-viewfinder' : 'fa-list-check'} mr-3 text-amber-500"></i>
+                                    ${isClients ? `Clientes Registrados (${state.clients.length})` : `Procedimentos Ativos (${state.procedures.length})`}
+                                </h3>
+                                <button onclick="${isClients ? 'fetchClients()' : 'fetchProcedures()'}" class="w-10 h-10 rounded-xl bg-white/5 hover:bg-amber-500/10 hover:text-amber-500 transition-all flex items-center justify-center">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                            <div class="relative">
+                                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                                <input type="text" 
+                                       id="managementSearchInput"
+                                       placeholder="Pesquisar ${isClients ? 'cliente' : 'procedimento'}..." 
+                                       oninput="window.handleManagementSearch(this.value)"
+                                       value="${state.managementSearch}"
+                                       class="w-full bg-dark-900 border border-white/5 py-3 pl-12 pr-4 rounded-xl text-sm outline-none focus:border-amber-500/50 transition-all font-medium">
+                            </div>
                         </div>
                         
                         <div class="max-h-[600px] overflow-y-auto custom-scroll">
@@ -1295,7 +1510,9 @@ const ClientsPage = () => {
                                             </tr>
                                         </thead>
                                         <tbody class="divide-y divide-white/5 text-sm">
-                                            ${state.clients.map(c => `
+                                            ${state.clients
+                                                .filter(c => c.nome.toLowerCase().includes(state.managementSearch.toLowerCase()))
+                                                .map(c => `
                                                 <tr class="hover:bg-white/[0.01] transition-colors group">
                                                     <td class="px-8 py-4 font-bold text-white">${c.nome}</td>
                                                     <td class="px-8 py-4">
@@ -1326,7 +1543,9 @@ const ClientsPage = () => {
                                 </div>
                                 <!-- Mobile Client Cards -->
                                 <div class="sm:hidden divide-y divide-white/5">
-                                    ${state.clients.map(c => `
+                                    ${state.clients
+                                        .filter(c => c.nome.toLowerCase().includes(state.managementSearch.toLowerCase()))
+                                        .map(c => `
                                         <div class="p-6 space-y-4">
                                             <div class="flex justify-between items-start">
                                                 <div><p class="text-lg font-bold text-white">${c.nome}</p></div>
@@ -1354,7 +1573,9 @@ const ClientsPage = () => {
                                             </tr>
                                         </thead>
                                         <tbody class="divide-y divide-white/5 text-sm">
-                                            ${state.procedures.map(p => `
+                                            ${state.procedures
+                                                .filter(p => p.nome.toLowerCase().includes(state.managementSearch.toLowerCase()))
+                                                .map(p => `
                                                 <tr class="hover:bg-white/[0.01] transition-colors group">
                                                     <td class="px-8 py-4 font-bold text-white">${p.nome}</td>
                                                     <td class="px-8 py-4 text-emerald-400 font-black">R$ ${p.preco.toFixed(2).replace('.', ',')}</td>
@@ -1377,7 +1598,9 @@ const ClientsPage = () => {
                                 </div>
                                 <!-- Mobile Procedure Cards -->
                                 <div class="sm:hidden divide-y divide-white/5">
-                                    ${state.procedures.map(p => `
+                                    ${state.procedures
+                                        .filter(p => p.nome.toLowerCase().includes(state.managementSearch.toLowerCase()))
+                                        .map(p => `
                                         <div class="p-6 flex justify-between items-center">
                                             <div>
                                                 <p class="text-lg font-bold text-white">${p.nome}</p>
@@ -1391,7 +1614,7 @@ const ClientsPage = () => {
                                     `).join('')}
                                 </div>
                             `}
-                            ${(isClients ? state.clients.length : state.procedures.length) === 0 ? '<div class="p-20 text-center text-slate-500 font-bold italic">Nenhum registro encontrado.</div>' : ''}
+                            ${(isClients ? state.clients : state.procedures).filter(x => x.nome.toLowerCase().includes(state.managementSearch.toLowerCase())).length === 0 ? '<div class="p-20 text-center text-slate-500 font-bold italic">Nenhum registro encontrado.</div>' : ''}
                         </div>
                     </div>
                 </div>
@@ -1400,6 +1623,9 @@ const ClientsPage = () => {
     `;
 };
 
+/**
+ * PÁGINA: Configurações e Tema
+ */
 const SetupPage = () => {
     window.updateColor = (hex) => {
         state.theme.accent = hex;
@@ -1516,9 +1742,18 @@ const pages = {
     setup: SetupPage
 };
 
-// --- Core Render Logic ---
+// ==========================================
+// 8. MOTOR DE RENDERIZAÇÃO E INICIALIZAÇÃO
+// ==========================================
 function render() {
     const app = document.getElementById('app');
+    
+    // Captura o foco e seleção antes de renderizar
+    const activeId = document.activeElement ? document.activeElement.id : null;
+    const selection = document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') 
+        ? { start: document.activeElement.selectionStart, end: document.activeElement.selectionEnd } 
+        : null;
+
     const contentFn = pages[state.currentPage] || (() => '404');
     const content = contentFn();
 
@@ -1534,6 +1769,17 @@ function render() {
             </div>
         </div>
     `;
+
+    // Restaura o foco e posição do cursor
+    if (activeId) {
+        const el = document.getElementById(activeId);
+        if (el) {
+            el.focus();
+            if (selection && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+                el.setSelectionRange(selection.start, selection.end);
+            }
+        }
+    }
 }
 
 // Global exposure
