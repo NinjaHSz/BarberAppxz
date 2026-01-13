@@ -432,6 +432,18 @@ const Header = () => {
         render();
     };
 
+    window.syncAll = async () => {
+        const btn = document.getElementById('globalSyncBtn');
+        if (btn) btn.classList.add('fa-spin');
+        
+        await Promise.all([
+            syncFromSheet(state.sheetUrl),
+            fetchClients()
+        ]);
+        
+        if (btn) btn.classList.remove('fa-spin');
+    };
+
     const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     const days = Array.from({length: 31}, (_, i) => i + 1);
 
@@ -459,13 +471,21 @@ const Header = () => {
                     <option value="2026" ${state.filters.year === 2026 ? 'selected' : ''}>26</option>
                 </select>
             </div>
-            <div class="hidden sm:flex items-center space-x-2 text-xs md:text-sm text-slate-400">
-                <i class="fas fa-calendar"></i>
-                <span class="font-medium">${formattedDate}</span>
-            </div>
-            <!-- Logo Mobile -->
-            <div class="md:hidden flex items-center">
-                <h1 class="text-lg font-display font-extrabold text-amber-500 italic">B<span class="text-white">BI</span></h1>
+
+            <div class="flex items-center space-x-4">
+                <div class="hidden sm:flex items-center space-x-2 text-xs md:text-sm text-slate-400">
+                    <i class="fas fa-calendar"></i>
+                    <span class="font-medium">${formattedDate}</span>
+                </div>
+                
+                <!-- Logo Mobile -->
+                <div class="md:hidden flex items-center">
+                    <h1 class="text-lg font-display font-extrabold text-amber-500 italic">B<span class="text-white">BI</span></h1>
+                </div>
+
+                <button onclick="window.syncAll()" class="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-white/5 hover:bg-amber-500/10 hover:text-amber-500 transition-all flex items-center justify-center border border-white/5">
+                    <i id="globalSyncBtn" class="fas fa-sync-alt text-xs md:text-sm"></i>
+                </button>
             </div>
         </header>
     `;
@@ -1078,6 +1098,9 @@ const ClientsPage = () => {
                                 <i class="fas fa-users-viewfinder mr-3 text-amber-500"></i>
                                 Clientes Registrados (${state.clients.length})
                             </h3>
+                            <button onclick="fetchClients()" class="w-10 h-10 rounded-xl bg-white/5 hover:bg-amber-500/10 hover:text-amber-500 transition-all flex items-center justify-center">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
                         </div>
                         <div class="max-h-[600px] overflow-y-auto custom-scroll">
                             <div class="hidden sm:block">
