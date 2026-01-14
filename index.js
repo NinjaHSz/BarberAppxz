@@ -53,7 +53,8 @@ const state = {
     selectedClientId: null,
     paymentHistory: [], // Histórico de pagamentos de planos
     paymentsFetchedForClientId: null, // Controle de cache para evitar loops
-    isAddPlanModalOpen: false // Estado do modal de adicionar plano
+    isAddPlanModalOpen: false, // Estado do modal de adicionar plano
+    allPlanPayments: [] // Cache global de pagamentos de planos para dashboard
 };
 
 // ==========================================
@@ -99,6 +100,10 @@ async function fetchClients() {
     } catch (err) {
         console.error("Erro ao buscar clientes:", err);
     }
+    // Carrega pagamentos de planos para a dashboard
+    await fetchAllPlanPayments();
+    updateInternalStats();
+    render();
 }
 
 /**
@@ -134,16 +139,63 @@ async function fetchPaymentHistory(clientId) {
         });
         if (res.ok) {
             state.paymentHistory = await res.json();
-            state.paymentsFetchedForClientId = clientId; // Marca como carregado para este cliente
-            // Não chamar render() aqui para evitar loop infinito
+            state.paymentsFetchedForClientId = clientId;
+            
+            // Lógica: Sincronizar início do plano com o primeiro pagamento
+            if (state.paymentHistory.length > 0) {
+                 const sortedAsc = [...state.paymentHistory].sort((a, b) => new Date(a.data_pagamento) - new Date(b.data_pagamento));
+                 const firstPaymentDate = sortedAsc[0].data_pagamento;
+                 
+                 const client = state.clients.find(c => c.id == clientId);
+                 if (client && client.plano_inicio !== firstPaymentDate) {
+                     // Atualiza data silently
+                     fetch(`${SUPABASE_URL}/rest/v1/clientes?id=eq.${clientId}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': 'Bearer ' + SUPABASE_KEY,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ plano_inicio: firstPaymentDate })
+                     }).then(r => {
+                         if(r.ok) {
+                             client.plano_inicio = firstPaymentDate;
+                             // Opcional: render() se estivesse na view, mas fetchPaymentHistory roda antes do render ou paralelo
+                         }
+                     });
+                 }
+            }
         }
+        // Atualiza cache global também
+        if(typeof fetchAllPlanPayments === 'function') fetchAllPlanPayments();
     } catch (err) {
         console.error("Erro ao buscar histórico de pagamentos:", err);
-        // Em caso de erro, marca como carregado mesmo assim para não travar
         state.paymentHistory = [];
         state.paymentsFetchedForClientId = clientId; 
     }
 }
+
+async function fetchAllPlanPayments() {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/pagamentos_planos?select=*`, {
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY
+            }
+        });
+        if (res.ok) {
+            state.allPlanPayments = await res.json();
+            updateInternalStats();
+        }
+    } catch (e) { console.error('Erro ao buscar todos pagamentos:', e); }
+}
+
+window.renewPlan = async (clientId) => {
+    if(!confirm('Deseja renovar o ciclo do plano para hoje? Isso resetará a contagem de cortes/dias.')) return;
+    const today = new Date().toISOString().split('T')[0];
+    // Atualiza apenas o início do plano para hoje, mantendo histórico de pagamentos intacto
+    await window.updateClientPlan(clientId, { plano_inicio: today });
+};
 
 /**
  * Motor de Sincronização Híbrido (Multi-Sheet com Fallback)
@@ -403,23 +455,25 @@ async function syncFromSheet(url) {
 }
 
 function updateInternalStats() {
-    if (state.records.length === 0) return;
-
+    // Removida a guarda de records.length para permitir mostrar faturamento só de planos se houver
+    
     // Filtro baseado na seleção do usuário
     const targetDay = state.filters.day;
     const targetMonth = String(state.filters.month).padStart(2, '0');
     const targetYear = String(state.filters.year);
     const monthPrefix = `${targetYear}-${targetMonth}`;
     const dayPrefix = `${monthPrefix}-${String(targetDay).padStart(2, '0')}`;
-
-    const calcTotal = (filterFn) => state.records.filter(filterFn).reduce((acc, r) => acc + r.value, 0);
-
-    // Diário: Se 'Todos' (0) estiver selecionado, mostra o dia atual real, senão mostra o dia filtrado
     const displayDay = targetDay === 0 ? new Date().toISOString().split('T')[0] : dayPrefix;
-    
-    const daily = calcTotal(r => r.date === displayDay);
-    const monthly = calcTotal(r => r.date.startsWith(monthPrefix));
-    const annual = calcTotal(r => r.date.startsWith(targetYear));
+
+    const calculateCombinedTotal = (datePredicate) => {
+        const recTotal = (state.records || []).filter(r => datePredicate(r.date)).reduce((acc, r) => acc + (r.value || 0), 0);
+        const planTotal = (state.allPlanPayments || []).filter(p => datePredicate(p.data_pagamento)).reduce((acc, p) => acc + parseFloat(p.valor || 0), 0);
+        return recTotal + planTotal;
+    };
+
+    const daily = calculateCombinedTotal(d => d === displayDay);
+    const monthly = calculateCombinedTotal(d => d.startsWith(monthPrefix));
+    const annual = calculateCombinedTotal(d => d.startsWith(targetYear));
     
     state.kpis.diario = `R$ ${daily.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
     state.kpis.mensal = `R$ ${monthly.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
@@ -465,7 +519,6 @@ const Sidebar = () => `
             <!-- Itens do Menu Lateral -->
             ${NavLink('dashboard', 'fa-chart-line', 'Dashboard')}
             ${NavLink('records', 'fa-table', 'Agendamentos')}
-            ${NavLink('manage', 'fa-calendar-plus', 'Agendar')}
             ${NavLink('clients', 'fa-sliders', 'Gestão')}
             ${NavLink('plans', 'fa-id-card', 'Planos')}
             ${NavLink('setup', 'fa-gears', 'Configuração')}
@@ -502,7 +555,6 @@ const MobileNav = () => `
     <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-dark-900/90 backdrop-blur-xl border-t border-white/5 px-6 py-3 flex justify-between items-center z-50">
         ${MobileNavLink('dashboard', 'fa-chart-line', 'Início')}
         ${MobileNavLink('records', 'fa-table', 'Lista')}
-        ${MobileNavLink('manage', 'fa-calendar-plus', 'Agendar')}
         ${MobileNavLink('clients', 'fa-sliders', 'Gestão')}
         ${MobileNavLink('plans', 'fa-id-card', 'Planos')}
         ${MobileNavLink('setup', 'fa-gears', 'Ajustes')}
@@ -623,18 +675,37 @@ const Dashboard = () => {
         if (state.profitFilter === 'diario') {
             profitRecords = state.records.filter(r => r.date === (targetDay === 0 ? new Date().toISOString().split('T')[0] : dayPrefix));
             groupKeyFn = (r) => r.time.split(':')[0] + ':00';
+        } else if (state.profitFilter === 'semanal') {
+            const targetDate = targetDay === 0 ? new Date() : new Date(state.filters.year, state.filters.month - 1, state.filters.day);
+            const currentWeekDay = targetDate.getDay(); 
+            const startOfWeek = new Date(targetDate);
+            startOfWeek.setDate(targetDate.getDate() - currentWeekDay);
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+            
+            const startStr = startOfWeek.toISOString().split('T')[0];
+            const endStr = endOfWeek.toISOString().split('T')[0];
+
+            profitRecords = state.records.filter(r => r.date >= startStr && r.date <= endStr);
+            groupKeyFn = (r) => { 
+                const parts = r.date.split('-');
+                return new Date(parts[0], parts[1]-1, parts[2]).getDay(); 
+            };
+            const wDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+            labelFn = (k) => wDays[parseInt(k)];
         } else if (state.profitFilter === 'mensal') {
             profitRecords = state.records.filter(r => r.date.startsWith(monthPrefix));
             groupKeyFn = (r) => r.date.split('-')[2];
             labelFn = (k) => `Dia ${k}`;
-        } else if (state.profitFilter === 'anual') {
-            profitRecords = state.records.filter(r => r.date.startsWith(targetYear));
-            groupKeyFn = (r) => r.date.split('-')[1];
-            const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-            labelFn = (k) => monthNames[parseInt(k) - 1];
-        } else { // total
-            profitRecords = state.records;
-            groupKeyFn = (r) => r.date.split('-')[0];
+        } else { // anual (fallback do else que era total agora é anual ou deve ser vazio?)
+            // Se total não existe mais, assumimos anual ou mensal default? O array map tem 'anual'.
+            // Vamos cobrir 'anual' explicitamente e 'total' vira fallback ou removemos
+            if (state.profitFilter === 'anual') {
+                profitRecords = state.records.filter(r => r.date.startsWith(targetYear));
+                groupKeyFn = (r) => r.date.split('-')[1];
+                const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                labelFn = (k) => monthNames[parseInt(k) - 1];
+            }
         }
 
         const profitStats = profitRecords.reduce((acc, r) => {
@@ -642,6 +713,45 @@ const Dashboard = () => {
             acc[key] = (acc[key] || 0) + r.value;
             return acc;
         }, {});
+
+        // --- INCLUIR PAGAMENTOS DE PLANOS NO TOTAL ---
+        const targetDateStr = (targetDay === 0 ? new Date().toISOString().split('T')[0] : dayPrefix);
+        
+        const relevantPlanPayments = (state.allPlanPayments || []).filter(p => {
+             if (state.profitFilter === 'diario') return p.data_pagamento === targetDateStr;
+             if (state.profitFilter === 'semanal') {
+                 const targetDate = targetDay === 0 ? new Date() : new Date(state.filters.year, state.filters.month - 1, state.filters.day);
+                 const currentWeekDay = targetDate.getDay(); 
+                 const startOfWeek = new Date(targetDate);
+                 startOfWeek.setDate(targetDate.getDate() - currentWeekDay);
+                 startOfWeek.setHours(0,0,0,0);
+                 const endOfWeek = new Date(startOfWeek);
+                 endOfWeek.setDate(startOfWeek.getDate() + 6);
+                 endOfWeek.setHours(23,59,59,999);
+                 
+                 const pDate = new Date(p.data_pagamento + 'T12:00:00'); // Safe mid-day
+                 return pDate >= startOfWeek && pDate <= endOfWeek;
+             }
+             if (state.profitFilter === 'mensal') return p.data_pagamento.startsWith(monthPrefix);
+             if (state.profitFilter === 'anual') return p.data_pagamento.startsWith(targetYear);
+             return false;
+        });
+        
+        relevantPlanPayments.forEach(p => {
+             let key;
+             if (state.profitFilter === 'diario') key = '12:00'; 
+             else if (state.profitFilter === 'semanal') {
+                 // Usa Data com Timezone local simulada para pegar dia correto
+                 const parts = p.data_pagamento.split('-');
+                 const d = new Date(parts[0], parts[1]-1, parts[2]);
+                 key = d.getDay();
+             }
+             else if (state.profitFilter === 'mensal') key = p.data_pagamento.split('-')[2];
+             else if (state.profitFilter === 'anual') key = p.data_pagamento.split('-')[1];
+             else key = p.data_pagamento.split('-')[0];
+
+             if(key !== undefined) profitStats[key] = (profitStats[key] || 0) + parseFloat(p.valor);
+        });
 
         const sortedKeys = Object.keys(profitStats).sort();
 
@@ -706,7 +816,7 @@ const Dashboard = () => {
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
                         <h3 class="text-lg font-bold">Lucro Bruto</h3>
                         <div class="flex bg-dark-950 p-1 rounded-xl border border-white/5 space-x-1 overflow-x-auto max-w-full no-scrollbar">
-                            ${['diario', 'mensal', 'anual', 'total'].map(f => `
+                            ${['diario', 'semanal', 'mensal', 'anual'].map(f => `
                                 <button onclick="window.updateProfitFilter('${f}')" 
                                         class="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all
                                         ${state.profitFilter === f ? 'bg-amber-500 text-dark-950 shadow-lg shadow-amber-500/20' : 'text-slate-500 hover:text-white'}">
@@ -858,11 +968,16 @@ const RecordsPage = () => {
                     <h2 class="text-2xl sm:text-3xl font-display font-bold">Histórico de Agendamentos</h2>
                     <p class="text-slate-500 text-xs sm:text-sm mt-1">Sincronização via Google Sheets</p>
                 </div>
-                <div class="relative w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+                <div class="relative w-full sm:w-auto flex flex-col sm:flex-row gap-2 items-center">
+                    <button onclick="navigate('manage')" 
+                            class="flex items-center justify-center w-10 h-10 rounded-full bg-amber-500 text-dark-950 hover:bg-amber-400 hover:scale-110 transition-all shadow-lg shadow-amber-500/50 shrink-0 border border-amber-400"
+                            title="Novo Agendamento">
+                        <i class="fas fa-plus text-lg"></i>
+                    </button>
                     <button onclick="window.toggleEmptySlots()" 
-                            class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-white/5 bg-dark-900/50 hover:bg-amber-500/10 transition-all text-[10px] font-black uppercase tracking-widest ${state.showEmptySlots ? 'text-amber-500' : 'text-slate-500'}">
+                            class="flex items-center justify-center w-10 h-10 rounded-xl border border-white/5 bg-dark-900/50 hover:bg-white/10 transition-all shrink-0 ${state.showEmptySlots ? 'text-amber-500 border-amber-500/30' : 'text-slate-500 hover:text-white'}"
+                            title="${state.showEmptySlots ? 'Ocultar Vazios' : 'Mostrar Vazios'}">
                         <i class="fas ${state.showEmptySlots ? 'fa-eye-slash' : 'fa-eye'}"></i>
-                        ${state.showEmptySlots ? 'Ocultar Vazios' : 'Mostrar Vazios'}
                     </button>
                     <div class="relative flex-1 sm:w-80">
                         <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
@@ -936,7 +1051,7 @@ const EditModal = () => {
                                    value="${state.clientSearch || ''}"
                                    onfocus="window.openClientDropdownModal()"
                                    oninput="window.filterClientsModal(this.value)"
-                                   onkeydown="if(event.key === 'Enter') event.preventDefault()"
+                                   onkeydown="window.handleEnterSelection(event, 'clientDropdownModal')"
                                    class="w-full bg-dark-900 border border-white/5 py-3 pl-11 pr-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold text-sm">
                             
                             <input type="hidden" name="client" value="${state.clientSearch || ''}">
@@ -1092,14 +1207,14 @@ const RecordRow = (record) => {
 
             <div class="w-full md:w-32 flex justify-between md:justify-center items-center">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Pagamento:</span>
-                ${isBreak || isEmpty ? `
+                ${isBreak ? `
                     <span class="px-2 py-0.5 rounded-lg text-[10px] font-black border-transparent bg-transparent text-slate-400 uppercase tracking-tighter text-center w-20">
-                        ${isBreak ? 'N/A' : ''}
+                        N/A
                     </span>
                 ` : `
-                    <div class="relative">
+                    <div class="relative ${isEmpty ? 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity' : ''}">
                         <select onchange="window.saveInlineEdit(this)" 
-                                data-id="${id}" data-field="payment"
+                                data-id="${id}" data-ui-id="${rowId}" data-field="payment"
                                 class="appearance-none px-2 py-0.5 rounded-lg text-[10px] font-black border border-white/5 bg-white/[0.03] text-slate-500 uppercase tracking-tighter cursor-pointer focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50 outline-none transition-all pr-4 text-center w-24">
                             ${['PIX', 'DINHEIRO', 'CARTÃO', 'PLANO MENSAL', 'CORTESIA'].map(p => `
                                 <option value="${p}" ${record.paymentMethod === p ? 'selected' : ''} class="bg-dark-900">${p}</option>
@@ -1192,7 +1307,7 @@ const ManagePage = () => {
                                    value="${state.clientSearch || ''}"
                                    onfocus="window.openClientDropdown()"
                                    oninput="window.filterClients(this.value)"
-                                   onkeydown="if(event.key === 'Enter') event.preventDefault()"
+                                   onkeydown="window.handleEnterSelection(event, 'clientDropdown')"
                                    class="w-full bg-dark-900 border border-white/5 py-4 pl-12 pr-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold">
                             
                             <!-- Hidden input to store the final selected value for the form -->
@@ -1689,54 +1804,57 @@ const ClientsPage = () => {
     `;
 };
 
+// Mover funções para fora para estabilidade
+window.updateClientPlan = async (clientId, data) => {
+    const payload = typeof data === 'string' ? { plano: data } : data;
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/clientes?id=eq.${clientId}`, {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            const client = state.clients.find(c => c.id == clientId);
+            if (client) Object.assign(client, payload);
+            render();
+            fetchClients();
+        } else {
+            alert('Erro ao atualizar dados do plano.');
+        }
+    } catch (err) {
+        console.error(err);
+    }
+};
+
+window.handlePlanSearch = (val) => {
+    state.planSearchTerm = val;
+    render();
+    // Restaurar o foco imediatamente após o render
+    setTimeout(() => {
+        const input = document.getElementById('planSearchInput');
+        if (input) {
+            input.focus();
+            const len = input.value.length;
+            input.setSelectionRange(len, len);
+        }
+    }, 50);
+};
+
+window.renewPlan = async (clientId) => {
+    const today = new Date().toISOString().split('T')[0];
+    await window.updateClientPlan(clientId, { plano_inicio: today, plano_pagamento: today });
+};
+
 /**
  * PÁGINA: Gestão de Planos
  */
 const PlansPage = () => {
-    window.updateClientPlan = async (clientId, data) => {
-        const payload = typeof data === 'string' ? { plano: data } : data;
-        try {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/clientes?id=eq.${clientId}`, {
-                method: 'PATCH',
-                headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'return=minimal'
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                const client = state.clients.find(c => c.id == clientId);
-                if (client) Object.assign(client, payload);
-                render();
-                fetchClients();
-            } else {
-                alert('Erro ao atualizar dados do plano.');
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
-    window.handlePlanSearch = (val) => {
-        state.planSearchTerm = val;
-        // render(); // Removido para evitar perda de foco
-        
-        // Filtra via DOM
-        document.querySelectorAll('.plan-client-card').forEach(card => {
-            const name = card.dataset.name || '';
-            if (name.toLowerCase().includes(val.toLowerCase())) {
-                card.style.display = '';
-            } else {
-                card.style.display = 'none';
-            }
-        });
-        
-        // Atualiza estado de vazio se necessário (opcional, pode ser complexo de fazer puramente via DOM sem contar visíveis)
-    };
-
     window.toggleAddPlanModal = (show) => {
         state.isAddPlanModalOpen = show;
         render();
@@ -1838,7 +1956,13 @@ const PlansPage = () => {
     };
 
     const clientsWithPlans = state.clients.filter(c => c.plano && c.plano !== 'Nenhum');
-    const clientsWithoutPlans = state.clients.filter(c => !c.plano || c.plano === 'Nenhum');
+    const filteredPlans = clientsWithPlans.filter(c => {
+        if (!state.planSearchTerm) return true;
+        const search = state.planSearchTerm.toLowerCase();
+        const name = (c.nome || '').toLowerCase();
+        const tel = (c.telefone || '').toLowerCase();
+        return name.includes(search) || tel.includes(search);
+    });
 
     return `
         <div class="p-4 sm:p-8 space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -1866,6 +1990,7 @@ const PlansPage = () => {
                     <div class="relative w-full sm:w-80">
                         <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
                         <input type="text" 
+                               id="planSearchInput"
                                placeholder="Filtrar assinantes..." 
                                oninput="window.handlePlanSearch(this.value)"
                                value="${state.planSearchTerm}"
@@ -1873,44 +1998,29 @@ const PlansPage = () => {
                     </div>
                 </div>
                 
-                <div class="bg-dark-900/30 rounded-[2rem] border border-white/5 overflow-hidden min-h-[400px]">
-                    ${clientsWithPlans.length === 0 ? `
+                <div class="hidden md:grid grid-cols-12 gap-4 px-8 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 bg-white/[0.01]">
+                    <div class="col-span-4 pl-2">Cliente</div>
+                    <div class="col-span-2">Início Plan</div>
+                    <div class="col-span-2">Ult. Pagamento</div>
+                    <div class="col-span-2">Status</div>
+                    <div class="col-span-2 text-right pr-2">Ações</div>
+                </div>
+
+                <div class="bg-dark-900/30 rounded-b-[2rem] rounded-t-none border border-white/5 border-t-0 overflow-hidden min-h-[400px]">
+                    ${filteredPlans.length === 0 ? `
                         <div class="h-[400px] flex flex-col items-center justify-center text-slate-500 space-y-4">
                             <i class="fas fa-user-slash text-4xl opacity-20"></i>
-                            <p class="italic text-sm">Nenhum cliente com plano ativo.</p>
+                            <p class="italic text-sm">Nenhum assinante encontrado para "${state.planSearchTerm}".</p>
                         </div>
                     ` : `
                         <div class="divide-y divide-white/5 max-h-[700px] overflow-y-auto custom-scroll">
-                            ${clientsWithPlans
-                                .filter(c => !state.planSearchTerm || c.nome.toLowerCase().includes(state.planSearchTerm.toLowerCase()))
-                                .map(c => {
-                                    const planStats = (() => {
-                                        if (!c.plano_inicio || c.plano === 'Pausado') return null;
-                                        const start = new Date(c.plano_inicio + 'T00:00:00');
-                                        const today = new Date();
-                                        today.setHours(0,0,0,0);
-                                        
-                                        const diffTime = Math.abs(today - start);
-                                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-                                        const cycleDay = (diffDays % 30) || 30; // Dia 1 a 30
-                                        
-                                        // Calcular início do ciclo atual
-                                        const currentCycleStart = new Date(start);
-                                        currentCycleStart.setDate(start.getDate() + (Math.floor(diffDays / 30) * 30));
-                                        
-                                        // Contar visitas neste ciclo
-                                        const visits = state.records.filter(r => 
-                                            r.client === c.nome && 
-                                            new Date(r.date + 'T00:00:00') >= currentCycleStart &&
-                                            new Date(r.date + 'T00:00:00') <= today
-                                        ).length;
-                                        
-                                        return { cycleDay, visits };
-                                    })();
+                            ${filteredPlans.map(c => {
+                                    const planStats = window.getClientPlanUsage(c.nome);
 
                                     return `
-                                <div class="plan-client-card p-6 flex flex-col md:flex-row items-start md:items-center justify-between hover:bg-white/[0.02] transition-colors group gap-6" data-name="${c.nome}">
-                                    <div onclick="navigate('client-profile', '${c.id}')" class="flex items-center gap-3 w-full md:w-auto cursor-pointer group/name">
+                                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-6 hover:bg-white/[0.02] transition-colors group plan-client-card" data-name="${c.nome}">
+                                    <!-- Cliente Info (Col 4) -->
+                                    <div class="md:col-span-4 flex items-center gap-3 cursor-pointer group/name" onclick="navigate('client-profile', '${c.id}')">
                                         <div class="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 font-bold shrink-0 group-hover/name:bg-amber-500 group-hover/name:text-dark-950 transition-all relative">
                                             ${c.nome.charAt(0)}
                                             ${c.novo_cliente ? `<div class="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full border-2 border-dark-900 animate-pulse"></div>` : ''}
@@ -1923,43 +2033,44 @@ const PlansPage = () => {
                                             <div class="flex items-center gap-2 text-[10px]">
                                                 <p class="text-slate-500 font-bold uppercase tracking-widest truncate">${c.telefone || 'Sem telefone'}</p>
                                                 ${planStats ? `
-                                                    <span class="text-slate-600">•</span>
-                                                    <span class="text-amber-500 font-black">DIA ${planStats.cycleDay}/30</span>
-                                                    <span class="text-slate-600">•</span>
-                                                    <span class="${planStats.visits >= 4 ? 'text-red-500' : 'text-emerald-500'} font-black">${planStats.visits}/4 CORTES</span>
+                                                    <span class="text-slate-600 hidden md:inline">•</span>
+                                                    <span class="${planStats.usageCount >= 4 ? 'text-red-500' : 'text-emerald-500'} font-black hidden md:inline uppercase tracking-widest">${planStats.usageCount}/4 CORTES</span>
                                                 ` : ''}
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="w-full md:flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        <div class="space-y-1">
-                                            <label class="text-[9px] font-black uppercase text-slate-500 tracking-widest block ml-1">Início do Plano</label>
-                                            <input type="date" value="${c.plano_inicio || ''}" 
-                                                   onchange="window.updateClientPlan('${c.id}', { plano_inicio: this.value })"
-                                                   class="w-full bg-dark-950 border border-white/5 text-[10px] font-bold rounded-lg px-2 py-1.5 outline-none focus:border-amber-500 transition-all text-white/70">
-                                        </div>
-                                        <div class="space-y-1">
-                                            <label class="text-[9px] font-black uppercase text-slate-500 tracking-widest block ml-1">Último Pagamento</label>
-                                            <input type="date" value="${c.plano_pagamento || ''}" 
-                                                   onchange="window.updateClientPlan('${c.id}', { plano_pagamento: this.value })"
-                                                   class="w-full bg-dark-950 border border-white/5 text-[10px] font-bold rounded-lg px-2 py-1.5 outline-none focus:border-amber-500 transition-all text-white/70">
-                                        </div>
-                                        <div class="space-y-1">
-                                            <label class="text-[9px] font-black uppercase text-slate-500 tracking-widest block ml-1">Status/Tipo</label>
-                                            <div class="flex items-center gap-2">
-                                                <select onchange="window.updateClientPlan('${c.id}', { plano: this.value })" 
-                                                        class="flex-1 bg-dark-950 border border-white/5 text-[10px] font-bold rounded-lg px-2 py-1.5 outline-none focus:border-amber-500 transition-all cursor-pointer">
-                                                    <option value="Mensal" ${c.plano === 'Mensal' ? 'selected' : ''}>Mensal</option>
-                                                    <option value="Anual" ${c.plano === 'Anual' ? 'selected' : ''}>Anual</option>
-                                                    <option value="Pausado" ${c.plano === 'Pausado' ? 'selected' : ''}>Pausado</option>
-                                                </select>
-                                                <button onclick="window.updateClientPlan('${c.id}', { plano: 'Pausado' })" 
-                                                        class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-dark-950 transition-all flex items-center justify-center border border-amber-500/20 active:scale-95"
-                                                        title="Pausar Plano">
-                                                    <i class="fas fa-pause text-xs"></i>
-                                                </button>
-                                            </div>
-                                        </div>
+
+                                    <!-- Início Plano (Col 2) -->
+                                    <div class="md:col-span-2">
+                                        <input type="date" value="${c.plano_inicio || ''}" 
+                                               onchange="window.updateClientPlan('${c.id}', { plano_inicio: this.value })"
+                                               class="w-full bg-dark-950 border border-white/5 text-[10px] font-bold rounded-lg px-2 py-2 outline-none focus:border-amber-500 transition-all text-white/70 cursor-pointer hover:border-white/10">
+                                    </div>
+
+                                    <!-- Pagamento (Col 2) -->
+                                    <div class="md:col-span-2">
+                                        <input type="date" value="${c.plano_pagamento || ''}" 
+                                               onchange="window.updateClientPlan('${c.id}', { plano_pagamento: this.value })"
+                                               class="w-full bg-dark-950 border border-white/5 text-[10px] font-bold rounded-lg px-2 py-2 outline-none focus:border-amber-500 transition-all text-white/70 cursor-pointer hover:border-white/10">
+                                    </div>
+
+                                    <!-- Status (Col 2) -->
+                                    <div class="md:col-span-2">
+                                        <select onchange="window.updateClientPlan('${c.id}', { plano: this.value })" 
+                                                class="w-full bg-dark-950 border border-white/5 text-[10px] font-bold rounded-lg px-2 py-2 outline-none focus:border-amber-500 transition-all cursor-pointer appearance-none text-center hover:border-white/10 ${c.plano === 'Pausado' ? 'text-yellow-500' : 'text-white'}">
+                                            <option value="Mensal" ${c.plano === 'Mensal' ? 'selected' : ''}>Mensal</option>
+                                            <option value="Anual" ${c.plano === 'Anual' ? 'selected' : ''}>Anual</option>
+                                            <option value="Pausado" ${c.plano === 'Pausado' ? 'selected' : ''}>Pausado</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Actions (Col 2) -->
+                                    <div class="md:col-span-2 flex justify-end gap-2">
+                                        <button onclick="window.updateClientPlan('${c.id}', { plano: 'Pausado' })" 
+                                                class="w-9 h-9 rounded-xl bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500 hover:text-dark-950 transition-all flex items-center justify-center border border-yellow-500/20 active:scale-95 shadow-lg shadow-yellow-500/5"
+                                                title="Pausar Plano">
+                                            <i class="fas fa-pause text-xs"></i>
+                                        </button>
                                     </div>
                                 </div>
                             `;}).join('')}
@@ -2084,10 +2195,14 @@ const ClientProfilePage = () => {
         const formData = new FormData(e.target);
         const btn = e.target.querySelector('button[type="submit"]');
         
+        // Arredondamento seguro para 2 casas
+        const rawValor = parseFloat(formData.get('valor'));
+        const valorFinal = rawValor ? Math.round(rawValor * 100) / 100 : 0;
+
         const paymentData = {
             cliente_id: client.id,
             data_pagamento: formData.get('data_pagamento'),
-            valor: parseFloat(formData.get('valor')) || 0,
+            valor: valorFinal,
             tipo_plano: formData.get('tipo_plano'),
             forma_pagamento: formData.get('forma_pagamento'),
             observacao: formData.get('observacao') || null
@@ -2111,8 +2226,11 @@ const ClientProfilePage = () => {
             if (res.ok) {
                 e.target.reset();
                 fetchPaymentHistory(client.id);
-                // Atualizar a data do último pagamento no cliente
-                await window.updateClientPlan(client.id, { plano_pagamento: paymentData.data_pagamento });
+                // Atualizar o último pagamento e resetar o início do plano (contador de cortes)
+                await window.updateClientPlan(client.id, { 
+                    plano_pagamento: paymentData.data_pagamento,
+                    plano_inicio: paymentData.data_pagamento 
+                });
             } else {
                 alert('Erro ao registrar pagamento.');
             }
@@ -2124,14 +2242,47 @@ const ClientProfilePage = () => {
         }
     };
 
-    window.deletePayment = async (paymentId) => {
-        if (!confirm('Deseja excluir este registro de pagamento?')) return;
+    window.deletePayment = async (e, paymentId) => {
+        if(e) e.stopPropagation();
+        
         try {
             await fetch(`${SUPABASE_URL}/rest/v1/pagamentos_planos?id=eq.${paymentId}`, {
                 method: 'DELETE',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
             });
-            fetchPaymentHistory(client.id);
+            
+            // Atualiza estado local imediatamente
+            state.paymentHistory = state.paymentHistory.filter(p => p.id !== paymentId);
+            
+            // Verifica se ficou vazio e limpa datas do cliente
+            if (state.paymentHistory.length === 0) {
+                 await fetch(`${SUPABASE_URL}/rest/v1/clientes?id=eq.${client.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ plano_inicio: null, plano_pagamento: null })
+                 });
+                 client.plano_inicio = null;
+                 client.plano_pagamento = null;
+            } else {
+                // Se ainda tem pagamentos, re-sincroniza o início com o mais antigo restante
+                const sortedAsc = [...state.paymentHistory].sort((a, b) => new Date(a.data_pagamento) - new Date(b.data_pagamento));
+                const firstPayment = sortedAsc[0].data_pagamento;
+                if (client.plano_inicio !== firstPayment) {
+                     await fetch(`${SUPABASE_URL}/rest/v1/clientes?id=eq.${client.id}`, {
+                        method: 'PATCH',
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ plano_inicio: firstPayment })
+                     });
+                     client.plano_inicio = firstPayment;
+                }
+            }
+            
+            render();
+            fetchPaymentHistory(client.id); // Sincroniza background para garantir
         } catch (err) { alert('Erro ao excluir pagamento.'); }
     };
 
@@ -2144,10 +2295,17 @@ const ClientProfilePage = () => {
     const today = new Date().toISOString().split('T')[0];
     const pastRecords = clientRecords.filter(r => r.date <= today);
     
-    // Calcula total investido apenas com base nos agendamentos realizados/passados
-    const totalSpent = pastRecords.reduce((acc, r) => acc + (parseFloat(r.value) || 0), 0);
+    // Calcula total investido: Agendamentos + Planos
+    const totalAppointmentsSpent = pastRecords.reduce((acc, r) => acc + (parseFloat(r.value) || 0), 0);
+    const totalPlansSpent = (state.paymentHistory || []).reduce((acc, p) => acc + (parseFloat(p.valor) || 0), 0);
+    const totalSpent = totalAppointmentsSpent + totalPlansSpent;
     
     const lastVisit = pastRecords.length > 0 ? pastRecords[0].date : 'Nunca';
+    
+    // Pega a data mais recente do histórico de pagamentos para exibição precisa
+    const displayLastPaymentDate = state.paymentHistory.length > 0 
+        ? state.paymentHistory[0].data_pagamento 
+        : client.plano_pagamento;
 
     return `
         <div class="p-4 sm:p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -2201,7 +2359,7 @@ const ClientProfilePage = () => {
                     </div>
                     <div class="glass-card p-6 rounded-[2rem] border border-white/5">
                         <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Último Pagamento</p>
-                        <h4 class="text-2xl font-black text-white">${client.plano_pagamento ? new Date(client.plano_pagamento + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não registrado'}</h4>
+                        <h4 class="text-2xl font-black text-white">${displayLastPaymentDate ? new Date(displayLastPaymentDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não registrado'}</h4>
                     </div>
                 </div>
             ` : ''}
@@ -2294,7 +2452,7 @@ const ClientProfilePage = () => {
                                             </div>
                                             <div class="flex items-center gap-4">
                                                 <div class="text-lg font-black text-emerald-400">R$ ${parseFloat(p.valor).toFixed(2)}</div>
-                                                <button onclick="window.deletePayment('${p.id}')" 
+                                                <button onclick="window.deletePayment(event, '${p.id}')" 
                                                         class="w-8 h-8 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center opacity-0 group-hover:opacity-100"
                                                         title="Excluir Pagamento">
                                                     <i class="fas fa-trash-can text-xs"></i>
@@ -2560,6 +2718,50 @@ if (!window.hasGlobalHandlers) {
         render();
     };
 
+    // Helper para detectar ciclo e uso do plano
+    window.getClientPlanUsage = (clientName) => {
+        if (!clientName) return null;
+        const client = state.clients.find(c => (c.nome || '').trim().toLowerCase() === clientName.trim().toLowerCase());
+        if (!client || !client.plano_inicio || client.plano === 'Nenhum' || client.plano === 'Pausado') return null;
+        
+        // Data de início do plano (meia-noite)
+        const start = new Date(client.plano_inicio + 'T00:00:00');
+        // Hoje (meia-noite)
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        
+        // Diferença em dias
+        const diffTime = today - start;
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Ciclos de 30 dias
+        const cycleIndex = Math.floor(diffDays / 30);
+        
+        // Início do ciclo atual
+        const currentCycleStart = new Date(start.getTime());
+        currentCycleStart.setDate(start.getDate() + (cycleIndex * 30));
+        
+        // Fim do ciclo atual (exclusivo)
+        const nextCycleStart = new Date(currentCycleStart.getTime());
+        nextCycleStart.setDate(currentCycleStart.getDate() + 30);
+        
+        const visits = state.records.filter(r => {
+            const rClient = (r.client || '').trim().toLowerCase();
+            const cName = client.nome.trim().toLowerCase();
+            if (rClient !== cName) return false;
+            
+            const rDate = new Date(r.date + 'T00:00:00');
+            return rDate >= currentCycleStart && rDate < nextCycleStart;
+        }).length;
+        
+        return {
+            usageCount: visits,
+            nextVisit: visits + 1,
+            isWithinLimit: visits < 4,
+            cycleDay: (diffDays % 30) + 1
+        };
+    };
+
     // --- Helpers de Busca de Clientes (Global) ---
     window.openClientDropdown = () => {
         const dropdown = document.getElementById('clientDropdown');
@@ -2601,6 +2803,31 @@ if (!window.hasGlobalHandlers) {
         if (input) input.value = name;
         if (hidden) hidden.value = name;
         document.getElementById('clientDropdown')?.classList.add('hidden');
+
+        // Auto-fill logic para Plano
+        const usage = window.getClientPlanUsage(name);
+        if (usage && usage.isWithinLimit) {
+            const form = document.querySelector('form[onsubmit="window.saveNewRecord(event)"]');
+            if (form) {
+                const serviceSelect = form.querySelector('select[name="service"]');
+                const valueInput = form.querySelector('input[name="value"]');
+                const paymentSelect = form.querySelector('select[name="payment"]');
+                
+                if (serviceSelect) {
+                    const planServiceName = `${usage.nextVisit}º DIA`;
+                    // Adiciona opção temporária se não existir
+                    if (!Array.from(serviceSelect.options).some(o => o.value === planServiceName)) {
+                        const opt = document.createElement('option');
+                        opt.value = planServiceName;
+                        opt.text = planServiceName;
+                        serviceSelect.add(opt);
+                    }
+                    serviceSelect.value = planServiceName;
+                }
+                if (valueInput) valueInput.value = "0";
+                if (paymentSelect) paymentSelect.value = "PLANO MENSAL";
+            }
+        }
     };
 
     // --- Helpers para o Modal de Edição ---
@@ -2644,6 +2871,30 @@ if (!window.hasGlobalHandlers) {
         if (input) input.value = name;
         if (hidden) hidden.value = name;
         document.getElementById('clientDropdownModal')?.classList.add('hidden');
+
+        // Auto-fill logic para Plano (Modal)
+        const usage = window.getClientPlanUsage(name);
+        if (usage && usage.isWithinLimit) {
+            const form = document.querySelector('.glass-card form[onsubmit="window.saveNewRecord(event)"]');
+            if (form) {
+                const serviceSelect = form.querySelector('select[name="service"]');
+                const valueInput = form.querySelector('input[name="value"]');
+                const paymentSelect = form.querySelector('select[name="payment"]');
+                
+                if (serviceSelect) {
+                    const planServiceName = `${usage.nextVisit}º DIA`;
+                    if (!Array.from(serviceSelect.options).some(o => o.value === planServiceName)) {
+                        const opt = document.createElement('option');
+                        opt.value = planServiceName;
+                        opt.text = planServiceName;
+                        serviceSelect.add(opt);
+                    }
+                    serviceSelect.value = planServiceName;
+                }
+                if (valueInput) valueInput.value = "0";
+                if (paymentSelect) paymentSelect.value = "PLANO MENSAL";
+            }
+        }
     };
 
     window.updatePriceByService = (serviceName) => {
@@ -2653,6 +2904,33 @@ if (!window.hasGlobalHandlers) {
             if (input) input.value = proc.preco;
         }
     };
+
+window.handleEnterSelection = (e, dropdownId) => {
+    if (e.key === 'Enter') {
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown && !dropdown.classList.contains('hidden')) {
+            const firstOption = dropdown.querySelector('div');
+            if (firstOption) {
+                e.preventDefault();
+                const mousedownEvent = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+                const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true });
+                firstOption.dispatchEvent(mousedownEvent);
+                firstOption.dispatchEvent(clickEvent);
+                
+                // Tenta mover o foco para o próximo campo (Serviço) nos formulários principais
+                setTimeout(() => {
+                    const form = e.target.closest('form');
+                    if (form) {
+                        const next = form.querySelector('select[name="service"]');
+                        if (next) next.focus();
+                    }
+                }, 50);
+                return true;
+            }
+        }
+    }
+    return false;
+};
 
     window.saveNewRecord = async (e) => {
         e.preventDefault();
@@ -2732,19 +3010,37 @@ if (!window.hasGlobalHandlers) {
         let finalValue = value;
         if (field === 'value') finalValue = parseFloat(value.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
 
-        // Lógica Especial: Xº Dia
-        const isMensal = field === 'client' && /\d+º\s*Dia/i.test(value);
+        // Detectar se o cliente tem plano
+        const planUsage = field === 'client' ? window.getClientPlanUsage(value) : null;
+        if (planUsage && planUsage.isWithinLimit) {
+            const serviceEl = document.querySelector(`[data-ui-id="${uiId}"][data-field="service"]`);
+            const valueEl = document.querySelector(`[data-ui-id="${uiId}"][data-field="value"]`);
+            const paymentEl = document.querySelector(`[data-ui-id="${uiId}"][data-field="payment"]`);
+            
+            if (serviceEl) serviceEl.innerText = `${planUsage.nextVisit}º DIA`;
+            if (valueEl) valueEl.innerText = "0.00";
+            if (paymentEl) paymentEl.value = "PLANO MENSAL";
+        }
+
+        // Prevenir salvamentos múltiplos enquanto um está em andamento
+        if (el.dataset.isSaving === "true") return;
 
         try {
             if (id === 'new') {
                 if (field === 'client' && value !== '' && value !== '---') {
+                    el.dataset.isSaving = "true";
+                    
+                    const serviceVal = document.querySelector(`[data-ui-id="${uiId}"][data-field="service"]`)?.innerText.trim() || 'A DEFINIR';
+                    const priceVal = parseFloat(document.querySelector(`[data-ui-id="${uiId}"][data-field="value"]`)?.innerText.trim()) || 0;
+                    const paymentVal = document.querySelector(`[data-ui-id="${uiId}"][data-field="payment"]`)?.value || 'PIX';
+
                     const recordData = {
                         data: date,
                         horario: time,
                         cliente: value,
-                        procedimento: isMensal ? 'BLOQUEADO' : 'A DEFINIR',
-                        valor: 0,
-                        forma_pagamento: isMensal ? 'PLANO MENSAL' : 'PIX'
+                        procedimento: serviceVal,
+                        valor: priceVal,
+                        forma_pagamento: paymentVal
                     };
                     const res = await fetch(`${SUPABASE_URL}/rest/v1/agendamentos`, {
                         method: 'POST',
@@ -2759,14 +3055,20 @@ if (!window.hasGlobalHandlers) {
                     if (res.ok) {
                         const savedData = await res.json();
                         if (savedData && savedData[0]) {
-                            el.dataset.id = savedData[0].id;
+                            const newId = savedData[0].id;
+                            // Atualizar IDs dos irmãos para que próximos edits sejam PATCH
+                            document.querySelectorAll(`[data-ui-id="${uiId}"]`).forEach(s => {
+                                s.dataset.id = newId;
+                            });
                             syncFromSheet(state.sheetUrl);
                         }
                     }
+                    delete el.dataset.isSaving;
                 }
             } else {
                 let recordData = { [dbField]: finalValue };
-                if (isMensal) {
+                // Se o serviço mudou para algo tipo "1º DIA", garantir que valor e pagamento subam junto
+                if (field === 'service' && /\d+º\s*DIA/i.test(value)) {
                     recordData.forma_pagamento = 'PLANO MENSAL';
                     recordData.valor = 0;
                 }
@@ -2865,22 +3167,41 @@ if (!window.hasGlobalHandlers) {
     };
 
     window.selectInlineData = (dropdownEl, uiId, field, value) => {
-        // Encontra o elemento contenteditable correto
         const el = document.querySelector(`[data-ui-id="${uiId}"][data-field="${field}"]`);
         if (el) {
             el.innerText = value;
             el.dataset.beganTyping = "false";
             dropdownEl.parentElement.classList.add('hidden');
             
-            // Se for serviço, tentar atualizar o preço automaticamente
+            const isNew = el.dataset.id === 'new';
+
+            if (field === 'client') {
+                const usage = window.getClientPlanUsage(value);
+                if (usage && usage.isWithinLimit) {
+                    const serviceEl = document.querySelector(`[data-ui-id="${uiId}"][data-field="service"]`);
+                    const valueEl = document.querySelector(`[data-ui-id="${uiId}"][data-field="value"]`);
+                    const paymentSelect = document.querySelector(`[data-ui-id="${uiId}"][data-field="payment"]`);
+                    
+                    if (serviceEl) serviceEl.innerText = `${usage.nextVisit}º DIA`;
+                    if (valueEl) valueEl.innerText = "0.00";
+                    if (paymentSelect) paymentSelect.value = "PLANO MENSAL";
+
+                    // Se não for novo, dispara o save para cada campo. 
+                    if (!isNew) {
+                        if (serviceEl) window.saveInlineEdit(serviceEl);
+                        if (valueEl) window.saveInlineEdit(valueEl);
+                        if (paymentSelect) window.saveInlineEdit(paymentSelect);
+                    }
+                }
+            }
+            
             if (field === 'service') {
                 const proc = state.procedures.find(p => p.nome === value);
                 if (proc) {
                     const priceEl = document.querySelector(`[data-ui-id="${uiId}"][data-field="value"]`);
                     if (priceEl) {
                         priceEl.innerText = proc.preco.toFixed(2);
-                        // Dispara salvamento do preço também
-                        window.saveInlineEdit(priceEl);
+                        if (!isNew) window.saveInlineEdit(priceEl);
                     }
                 }
             }
