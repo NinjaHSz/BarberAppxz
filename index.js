@@ -142,7 +142,7 @@ async function syncFromSheet(url) {
                     console.log(`[Sync] Recebidos ${data.length} registros via Supabase.`);
                     
                     data.forEach(r => {
-                        const key = `${r.data}_${r.horario}_${r.cliente}`.toLowerCase();
+                        const key = r.id; // Usar ID como chave para evitar colisões e duplicatas
                         recordMap.set(key, {
                             id: r.id,
                             date: r.data,
@@ -752,34 +752,61 @@ const RecordsPage = () => {
                 (r.service || '').toLowerCase().includes(state.searchTerm.toLowerCase())
             );
         } else {
-            // Criamos um set de IDs já exibidos para não duplicar
-            const displayedIds = new Set();
+            // Criamos um set de chaves para evitar duplicações
+            // Chaves priorizadas: ID do banco > Data+Hora+Cliente (para novos)
+            const displayedKeys = new Set();
             recordsToDisplay = [];
 
             // Primeiro, iteramos pelos horários padrão
             standardTimes.forEach(time => {
+                // Filtramos os registros do banco que batem com esse horário (formato HH:mm)
                 const matches = existingForDay.filter(r => r.time.startsWith(time.substring(0, 5)));
+                
                 if (matches.length > 0) {
                     matches.forEach(m => {
-                        recordsToDisplay.push(m);
-                        displayedIds.add(m.id);
+                        const key = m.id || `${m.date}_${m.time}_${m.client}`.toLowerCase();
+                        if (!displayedKeys.has(key)) {
+                            recordsToDisplay.push(m);
+                            displayedKeys.add(key);
+                        }
                     });
                 } else {
+                    // Se não há nada no banco para esse horário padrão, mostramos vazio
                     recordsToDisplay.push({ time, client: '---', service: '---', value: 0, paymentMethod: 'PIX', isEmpty: true, date: dayPrefix });
                 }
             });
 
-            // Depois, adicionamos qualquer registro que sobrou (horários fora do padrão)
+            // Depois, adicionamos qualquer registro que sobrou (horários personalizados/fora do padrão)
             existingForDay.forEach(r => {
-                if (!displayedIds.has(r.id)) {
+                const key = r.id || `${r.date}_${r.time}_${r.client}`.toLowerCase();
+                if (!displayedKeys.has(key)) {
                     recordsToDisplay.push(r);
+                    displayedKeys.add(key);
                 }
             });
 
             // Ordena por horário final
             recordsToDisplay.sort((a, b) => a.time.localeCompare(b.time));
 
-            // Filtra espaços vazios se o usuário desejar
+            // Filtro de Proximidade: Remove horários vazios se houver um real a menos de 20min
+            const realAppointments = recordsToDisplay.filter(r => !r.isEmpty);
+            recordsToDisplay = recordsToDisplay.filter(r => {
+                if (!r.isEmpty) return true;
+                
+                const [h, m] = r.time.split(':').map(Number);
+                const rMin = h * 60 + m;
+
+                const tooClose = realAppointments.some(real => {
+                    const [rh, rm] = real.time.split(':').map(Number);
+                    const realMin = rh * 60 + rm;
+                    const diff = Math.abs(rMin - realMin);
+                    return diff >= 1 && diff <= 20; // 1-20 minutos de distância
+                });
+
+                return !tooClose;
+            });
+
+            // Filtra espaços vazios se o usuário desejar (após o filtro de proximidade)
             if (!state.showEmptySlots) {
                 recordsToDisplay = recordsToDisplay.filter(r => !r.isEmpty);
             }
@@ -812,7 +839,7 @@ const RecordsPage = () => {
             </div>
 
             <!-- Tabela via Flexbox -->
-            <div class="space-y-4 md:space-y-0 md:bg-dark-900/30 md:rounded-[2rem] border border-white/5 overflow-hidden">
+            <div class="space-y-4 md:space-y-0 md:bg-dark-900/30 md:rounded-[2rem] border border-white/5">
                 <!-- Header (Apenas Desktop) -->
                 <div class="hidden md:flex bg-white/[0.02] border-b border-white/5 px-8 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">
                     <div class="w-20 text-left">Horário</div>
@@ -866,9 +893,8 @@ const EditModal = () => {
                             <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
                             <input type="text" 
                                    id="clientSearchInputModal"
-                                   placeholder="Digite para pesquisar..."
+                                   placeholder="Digite o nome do cliente..."
                                    autocomplete="off"
-                                   required
                                    value="${state.clientSearch || ''}"
                                    onfocus="window.openClientDropdownModal()"
                                    oninput="window.filterClientsModal(this.value)"
@@ -938,45 +964,58 @@ const RecordRow = (record) => {
     const isBreak = record.client === 'PAUSA';
     const isDayZero = state.filters.day === 0;
     const id = record.id || 'new';
+    const rowId = record.id ? `rec_${record.id}` : `new_${record.time.replace(/:/g, '')}`;
 
     return `
-        <div class="flex flex-col md:flex-row items-center md:items-center px-6 md:px-8 py-4 md:py-4 gap-4 md:gap-0 hover:bg-white/[0.01] transition-colors group relative md:static glass-card md:bg-transparent rounded-2xl md:rounded-none m-2 md:m-0 border md:border-0 border-white/5 ${isBreak ? 'bg-white/[0.02] border-white/10' : ''}">
+        <div class="flex flex-col md:flex-row items-center md:items-center px-6 md:px-8 py-4 md:py-4 gap-4 md:gap-0 hover:bg-white/[0.01] transition-colors group relative glass-card md:bg-transparent rounded-2xl md:rounded-none m-2 md:m-0 border md:border-0 border-white/5 ${isBreak ? 'bg-white/[0.02] border-white/10' : ''}" style="z-index: 1;">
             <div class="w-full md:w-20 text-xs md:text-sm text-amber-500 md:text-slate-400 font-black md:font-medium flex justify-between md:block">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Horário:</span>
-                ${record.time.substring(0, 5)}
+                <input type="time" 
+                     data-id="${id}" data-ui-id="${rowId}" data-field="time" data-time="${record.time}" data-date="${record.date}"
+                     onblur="this.parentElement.parentElement.style.zIndex='1'; window.saveInlineEdit(this)"
+                     onkeydown="window.handleInlineKey(event)"
+                     onfocus="this.parentElement.parentElement.style.zIndex='100'; window.clearPlaceholder(this)"
+                     value="${record.time.substring(0, 5)}"
+                     class="bg-dark-900 border border-white/5 outline-none focus:border-amber-500/50 rounded px-1.5 py-0.5 w-full md:w-auto text-xs font-bold text-amber-500 md:text-white/80 transition-all">
             </div>
             
-            <div class="w-full md:flex-1 md:px-4 text-sm md:text-sm font-bold md:font-semibold flex justify-between md:block">
+            <div class="w-full md:flex-1 md:px-4 text-sm md:text-sm font-bold md:font-semibold flex justify-between md:block relative">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Cliente:</span>
                 <div contenteditable="true" 
-                     data-id="${id}" data-field="client" data-time="${record.time}" data-date="${record.date}"
-                     onblur="window.saveInlineEdit(this)"
+                     data-id="${id}" data-ui-id="${rowId}" data-field="client" data-time="${record.time}" data-date="${record.date}"
+                     onblur="this.parentElement.parentElement.style.zIndex='1'; window.saveInlineEdit(this)"
                      onkeydown="window.handleInlineKey(event)"
-                     onfocus="window.clearPlaceholder(this)"
+                     oninput="window.showInlineAutocomplete(this)"
+                     onfocus="this.parentElement.parentElement.style.zIndex='100'; window.clearPlaceholder(this)"
                      class="truncate transition-all outline-none rounded px-1 focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50 ${isBreak ? 'text-slate-500 font-black' : (isEmpty ? 'text-slate-500 group-hover:text-amber-500 uppercase' : 'group-hover:text-amber-500 uppercase')}">
                     ${isBreak ? '<i class="fas fa-circle-minus mr-2"></i> PAUSA / BLOQUEIO' : record.client}
                 </div>
+                <!-- Dropdown Autocomplete Inline (Client) -->
+                <div id="inlineAutocomplete_client_${rowId}" class="hidden absolute left-0 right-0 top-full mt-2 bg-dark-800 border border-white/20 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.7)] max-h-48 overflow-y-auto p-1.5 z-[500] backdrop-blur-3xl lg:min-w-[200px]"></div>
             </div>
 
-            <div class="w-full md:flex-1 md:px-4 text-xs md:text-sm flex justify-between md:block md:text-center">
+            <div class="w-full md:flex-1 md:px-4 text-xs md:text-sm flex justify-between md:block md:text-center relative">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Serviço:</span>
                 <div contenteditable="true"
-                     data-id="${id}" data-field="service" data-time="${record.time}" data-date="${record.date}"
-                     onblur="window.saveInlineEdit(this)"
+                     data-id="${id}" data-ui-id="${rowId}" data-field="service" data-time="${record.time}" data-date="${record.date}"
+                     onblur="this.parentElement.parentElement.style.zIndex='1'; window.saveInlineEdit(this)"
                      onkeydown="window.handleInlineKey(event)"
-                     onfocus="window.clearPlaceholder(this)"
+                     oninput="window.showInlineAutocomplete(this)"
+                     onfocus="this.parentElement.parentElement.style.zIndex='100'; window.clearPlaceholder(this)"
                      class="outline-none rounded px-1 focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50 ${isBreak ? 'text-slate-600 italic' : (isEmpty ? 'text-slate-500' : (record.service === 'A DEFINIR' ? 'text-red-500 font-black animate-pulse' : 'text-white font-medium'))} uppercase break-words md:truncate">
                     ${isBreak ? 'HORÁRIO RESERVADO' : record.service}
                 </div>
+                <!-- Dropdown Autocomplete Inline (Service) -->
+                <div id="inlineAutocomplete_service_${rowId}" class="hidden absolute left-0 right-0 top-full mt-2 bg-dark-800 border border-white/20 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.7)] max-h-48 overflow-y-auto p-1.5 z-[500] backdrop-blur-3xl lg:min-w-[200px]"></div>
             </div>
 
-            <div class="w-full md:w-28 text-sm md:text-sm font-bold md:font-bold ${isBreak ? 'text-slate-600/50' : 'text-white md:text-amber-500/90'} flex justify-between md:block md:text-center">
+            <div class="w-full md:w-28 text-sm md:text-sm font-bold md:font-bold ${isBreak ? 'text-slate-600/50' : 'text-white md:text-amber-500/90'} flex justify-between md:block md:text-center relative">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Valor:</span>
                 <div contenteditable="true"
-                     data-id="${id}" data-field="value" data-time="${record.time}" data-date="${record.date}"
-                     onblur="window.saveInlineEdit(this)"
+                     data-id="${id}" data-ui-id="${rowId}" data-field="value" data-time="${record.time}" data-date="${record.date}"
+                     onblur="this.parentElement.parentElement.style.zIndex='1'; window.saveInlineEdit(this)"
                      onkeydown="window.handleInlineKey(event)"
-                     onfocus="window.clearPlaceholder(this)"
+                     onfocus="this.parentElement.parentElement.style.zIndex='100'; window.clearPlaceholder(this)"
                      class="outline-none rounded px-1 focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50">
                     ${isEmpty || isBreak ? '---' : record.value.toFixed(2)}
                 </div>
@@ -1751,7 +1790,6 @@ if (!window.hasGlobalHandlers) {
     };
 
     window.cancelAppointment = async (id) => {
-        if (!confirm('Deseja realmente cancelar este agendamento?')) return;
         try {
             const res = await fetch(`${SUPABASE_URL}/rest/v1/agendamentos?id=eq.${id}`, {
                 method: 'DELETE',
@@ -1911,17 +1949,30 @@ if (!window.hasGlobalHandlers) {
 
     window.saveInlineEdit = async (el) => {
         const id = el.dataset.id;
+        const uiId = el.dataset.uiId;
         const field = el.dataset.field;
-        let value = (el.tagName === 'SELECT' ? el.value : el.innerText).trim();
+        let value = (el.tagName === 'SELECT' || el.tagName === 'INPUT' ? el.value : el.innerText).trim();
         const time = el.dataset.time;
         const date = el.dataset.date;
+
+        // Resetar sinalizador de digitação
+        el.dataset.beganTyping = "false";
+
+        // Se mudou data ou hora e for um registro novo, atualiza a "intenção" nos irmãos para o próximo campo
+        if (id === 'new' && (field === 'time' || field === 'date')) {
+            document.querySelectorAll(`[data-ui-id="${uiId}"]`).forEach(sibling => {
+                if (field === 'time') sibling.dataset.time = value;
+                if (field === 'date') sibling.dataset.date = value;
+            });
+        }
 
         // Mapeamento de campos para o Supabase
         const fieldMap = {
             client: 'cliente',
             service: 'procedimento',
             value: 'valor',
-            payment: 'forma_pagamento'
+            payment: 'forma_pagamento',
+            time: 'horario'
         };
 
         const dbField = fieldMap[field];
@@ -1929,50 +1980,174 @@ if (!window.hasGlobalHandlers) {
 
         // Se for valor, converter para número
         let finalValue = value;
-        if (field === 'value') finalValue = parseFloat(value.replace(',', '.')) || 0;
+        if (field === 'value') finalValue = parseFloat(value.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+
+        // Lógica Especial: Xº Dia
+        const isMensal = field === 'client' && /\d+º\s*Dia/i.test(value);
 
         try {
             if (id === 'new') {
-                // Criar novo registro se pelo menos o cliente for preenchido
                 if (field === 'client' && value !== '' && value !== '---') {
                     const recordData = {
                         data: date,
                         horario: time,
                         cliente: value,
-                        procedimento: 'A DEFINIR',
+                        procedimento: isMensal ? 'BLOQUEADO' : 'A DEFINIR',
                         valor: 0,
-                        forma_pagamento: 'PIX'
+                        forma_pagamento: isMensal ? 'PLANO MENSAL' : 'PIX'
                     };
                     const res = await fetch(`${SUPABASE_URL}/rest/v1/agendamentos`, {
                         method: 'POST',
-                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        headers: { 
+                            'apikey': SUPABASE_KEY, 
+                            'Authorization': 'Bearer ' + SUPABASE_KEY, 
+                            'Content-Type': 'application/json', 
+                            'Prefer': 'return=representation' 
+                        },
                         body: JSON.stringify(recordData)
                     });
-                    if (res.ok) syncFromSheet(state.sheetUrl);
+                    if (res.ok) {
+                        const savedData = await res.json();
+                        if (savedData && savedData[0]) {
+                            el.dataset.id = savedData[0].id;
+                            syncFromSheet(state.sheetUrl);
+                        }
+                    }
                 }
             } else {
-                // Atualizar registro existente
-                const recordData = { [dbField]: finalValue };
+                let recordData = { [dbField]: finalValue };
+                if (isMensal) {
+                    recordData.forma_pagamento = 'PLANO MENSAL';
+                    recordData.valor = 0;
+                }
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/agendamentos?id=eq.${id}`, {
                     method: 'PATCH',
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    headers: { 
+                        'apikey': SUPABASE_KEY, 
+                        'Authorization': 'Bearer ' + SUPABASE_KEY, 
+                        'Content-Type': 'application/json', 
+                        'Prefer': 'return=representation' 
+                    },
                     body: JSON.stringify(recordData)
                 });
-                if (res.ok) syncFromSheet(state.sheetUrl);
+                if (res.ok) {
+                    syncFromSheet(state.sheetUrl);
+                }
             }
-        } catch (err) { console.error('Erro no salvamento inline:', err); }
-    };
-
-    window.handleInlineKey = (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            e.target.blur();
+        } catch (err) { 
+            console.error('Erro no salvamento inline:', err); 
         }
     };
 
+    window.handleInlineKey = (e) => {
+        const id = e.target.dataset.id;
+        const uiId = e.target.dataset.uiId;
+        const field = e.target.dataset.field;
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            
+            // Se houver autocomplete aberto, seleciona a primeira opção
+            const dropdown = document.getElementById(`inlineAutocomplete_${field}_${uiId}`);
+            if (dropdown && !dropdown.classList.contains('hidden')) {
+                const firstOption = dropdown.querySelector('div');
+                if (firstOption) {
+                    // Simular mousedown para disparar selectInlineData
+                    const mousedownEvent = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+                    firstOption.dispatchEvent(mousedownEvent);
+                    return;
+                }
+            }
+            
+            e.target.blur();
+            return;
+        }
+
+        // Comportamento Excel: se for a primeira tecla, limpa o conteúdo.
+        if (!e.target.dataset.beganTyping || e.target.dataset.beganTyping === "false") {
+            const isPrintable = e.key.length === 1;
+            const isBackspace = e.key === 'Backspace';
+            
+            if (isPrintable || isBackspace) {
+                e.target.innerText = "";
+                e.target.dataset.beganTyping = "true";
+                // Se for backspace, apenas limpamos e paramos por aqui para não apagar o "nada" que sobrou
+                if (isBackspace) e.preventDefault();
+            }
+        }
+    };
+
+    window.showInlineAutocomplete = (el) => {
+        const id = el.dataset.id;
+        const uiId = el.dataset.uiId;
+        const field = el.dataset.field;
+        if (field !== 'client' && field !== 'service') return;
+
+        const val = el.innerText.trim().toLowerCase();
+        const dropdown = document.getElementById(`inlineAutocomplete_${field}_${uiId}`);
+        if (!dropdown) return;
+
+        if (val.length < 1) {
+            dropdown.classList.add('hidden');
+            return;
+        }
+
+        let matches = [];
+        if (field === 'client') {
+            matches = state.clients.filter(c => c.nome.toLowerCase().includes(val)).slice(0, 5).map(c => c.nome);
+        } else {
+            matches = state.procedures.filter(p => p.nome.toLowerCase().includes(val)).slice(0, 5).map(p => p.nome);
+        }
+
+        if (matches.length === 0) {
+            dropdown.classList.add('hidden');
+            return;
+        }
+
+        dropdown.innerHTML = matches.map(name => `
+            <div class="px-3 py-2 hover:bg-amber-500 hover:text-dark-950 cursor-pointer rounded-lg transition-colors font-bold uppercase truncate text-[11px]"
+                 onmousedown="window.selectInlineData(this, '${uiId}', '${field}', '${name}')">
+                <i class="fas ${field === 'service' ? 'fa-cut' : 'fa-user text-slate-400'} mr-2 text-[10px]"></i>
+                ${name}
+            </div>
+        `).join('');
+        dropdown.classList.remove('hidden');
+    };
+
+    window.selectInlineData = (dropdownEl, uiId, field, value) => {
+        // Encontra o elemento contenteditable correto
+        const el = document.querySelector(`[data-ui-id="${uiId}"][data-field="${field}"]`);
+        if (el) {
+            el.innerText = value;
+            el.dataset.beganTyping = "false";
+            dropdownEl.parentElement.classList.add('hidden');
+            
+            // Se for serviço, tentar atualizar o preço automaticamente
+            if (field === 'service') {
+                const proc = state.procedures.find(p => p.nome === value);
+                if (proc) {
+                    const priceEl = document.querySelector(`[data-ui-id="${uiId}"][data-field="value"]`);
+                    if (priceEl) {
+                        priceEl.innerText = proc.preco.toFixed(2);
+                        // Dispara salvamento do preço também
+                        window.saveInlineEdit(priceEl);
+                    }
+                }
+            }
+            
+            window.saveInlineEdit(el);
+        }
+    };
+
+    window.handleInlineTyping = null; // Removido, usando handleInlineKey agora
+
     window.clearPlaceholder = (el) => {
+        el.dataset.beganTyping = "false";
+        // Ocultar outros autocompletes
+        document.querySelectorAll('[id^="inlineAutocomplete_"]').forEach(d => d.classList.add('hidden'));
         if (el.innerText === '---') {
             el.innerText = '';
+            el.dataset.beganTyping = "true";
         }
     };
 
@@ -1998,6 +2173,9 @@ if (!window.hasGlobalHandlers) {
         }
         if (!e.target.closest('#clientSearchInputModal') && !e.target.closest('#clientDropdownModal')) {
             document.getElementById('clientDropdownModal')?.classList.add('hidden');
+        }
+        if (!e.target.closest('[id^="inlineAutocomplete_"]')) {
+            document.querySelectorAll('[id^="inlineAutocomplete_"]').forEach(d => d.classList.add('hidden'));
         }
     });
 
