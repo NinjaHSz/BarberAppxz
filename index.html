@@ -96,6 +96,19 @@
         border-color: rgb(var(--accent-rgb)) !important;
         box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.2);
       }
+      /* Estilo para edição inline (planilha) */
+      [contenteditable="true"]:focus {
+        outline: none;
+        background: rgba(var(--accent-rgb), 0.1);
+        box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.3);
+        border-radius: 4px;
+        min-width: 50px;
+        display: inline-block;
+      }
+      [contenteditable="true"]:hover {
+        cursor: text;
+        background: rgba(255, 255, 255, 0.05);
+      }
     </style>
   </head>
   <body class="flex h-screen w-full">

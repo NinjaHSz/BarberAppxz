@@ -408,22 +408,14 @@ function updateInternalStats() {
  * @param {string} page - Nome da página (dashboard, records, manage, etc)
  */
 function navigate(page, time = null) {
+    if (page === 'manage') {
+        window.openAddModal(time || '', `${state.filters.year}-${String(state.filters.month).padStart(2, '0')}-${String(state.filters.day).padStart(2, '0')}`);
+        return;
+    }
     state.currentPage = page;
     state.clientSearch = ''; // Limpa a busca ao navegar
     state.isClientDropdownOpen = false;
-    
-    // Se estiver navegando para agendar e tiver um horário, inicializa o estado
-    if (page === 'manage') {
-        if (!state.editingRecord) {
-            state.editingRecord = { 
-                time: time || '', 
-                date: `${state.filters.year}-${String(state.filters.month).padStart(2, '0')}-${String(state.filters.day).padStart(2, '0')}`
-            };
-        }
-    } else {
-        state.editingRecord = null;
-    }
-    
+    state.editingRecord = null;
     render();
 }
 // ==========================================
@@ -773,7 +765,7 @@ const RecordsPage = () => {
                         displayedIds.add(m.id);
                     });
                 } else {
-                    recordsToDisplay.push({ time, client: '---', service: '---', value: 0, paymentMethod: '---', isEmpty: true });
+                    recordsToDisplay.push({ time, client: '---', service: '---', value: 0, paymentMethod: 'PIX', isEmpty: true, date: dayPrefix });
                 }
             });
 
@@ -842,6 +834,7 @@ const RecordsPage = () => {
 const EditModal = () => {
     const r = state.editingRecord;
     if (!r) return '';
+    const isNew = !r.id;
 
     return `
         <div class="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
@@ -849,11 +842,11 @@ const EditModal = () => {
                 <div class="sticky top-0 z-10 p-5 sm:p-8 border-b border-white/5 flex justify-between items-center bg-dark-900/95 backdrop-blur-md">
                     <div class="flex items-center gap-3 sm:gap-4">
                         <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
-                            <i class="fas fa-edit"></i>
+                            <i class="fas ${isNew ? 'fa-calendar-plus' : 'fa-edit'}"></i>
                         </div>
                         <div>
-                            <h3 class="text-lg sm:text-xl font-bold">Editar Agendamento</h3>
-                            <p class="text-[10px] text-slate-500 font-black uppercase tracking-widest truncate max-w-[150px] sm:max-w-none">${r.client || r.cliente}</p>
+                            <h3 class="text-lg sm:text-xl font-bold">${isNew ? 'Novo Agendamento' : 'Editar Agendamento'}</h3>
+                            <p class="text-[10px] text-slate-500 font-black uppercase tracking-widest truncate max-w-[150px] sm:max-w-none">${isNew ? 'Preencha os dados abaixo' : (r.client || r.cliente)}</p>
                         </div>
                     </div>
                     <button onclick="window.closeEditModal()" class="w-10 h-10 rounded-xl hover:bg-white/5 flex items-center justify-center transition-all shrink-0">
@@ -931,7 +924,7 @@ const EditModal = () => {
 
                     <div class="pt-4">
                         <button type="submit" class="w-full bg-amber-500 text-dark-950 font-black py-4 rounded-xl border border-transparent shadow-lg shadow-amber-500/10 active:scale-95 uppercase tracking-widest text-xs transition-all">
-                            Salvar Alterações
+                            ${isNew ? 'Salvar Agendamento' : 'Salvar Alterações'}
                         </button>
                     </div>
                 </form>
@@ -944,38 +937,69 @@ const RecordRow = (record) => {
     const isEmpty = !!record.isEmpty;
     const isBreak = record.client === 'PAUSA';
     const isDayZero = state.filters.day === 0;
+    const id = record.id || 'new';
 
     return `
-        <div class="flex flex-col md:flex-row items-center md:items-center px-6 md:px-8 py-4 md:py-4 gap-4 md:gap-0 hover:bg-white/[0.01] transition-colors group relative md:static glass-card md:bg-transparent rounded-2xl md:rounded-none m-2 md:m-0 border md:border-0 border-white/5 ${isEmpty ? 'opacity-40' : ''} ${isBreak ? 'bg-white/[0.02] border-white/10' : ''}">
-            <div class="w-full md:w-20 text-xs md:text-sm ${isEmpty ? 'text-slate-500' : 'text-amber-500 md:text-slate-400'} font-black md:font-medium flex justify-between md:block">
+        <div class="flex flex-col md:flex-row items-center md:items-center px-6 md:px-8 py-4 md:py-4 gap-4 md:gap-0 hover:bg-white/[0.01] transition-colors group relative md:static glass-card md:bg-transparent rounded-2xl md:rounded-none m-2 md:m-0 border md:border-0 border-white/5 ${isBreak ? 'bg-white/[0.02] border-white/10' : ''}">
+            <div class="w-full md:w-20 text-xs md:text-sm text-amber-500 md:text-slate-400 font-black md:font-medium flex justify-between md:block">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Horário:</span>
                 ${record.time.substring(0, 5)}
             </div>
             
             <div class="w-full md:flex-1 md:px-4 text-sm md:text-sm font-bold md:font-semibold flex justify-between md:block">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Cliente:</span>
-                <div class="truncate transition-colors ${isBreak ? 'text-slate-500 font-black' : (!isEmpty ? 'group-hover:text-amber-500 uppercase' : 'text-slate-600 uppercase')}">
+                <div contenteditable="true" 
+                     data-id="${id}" data-field="client" data-time="${record.time}" data-date="${record.date}"
+                     onblur="window.saveInlineEdit(this)"
+                     onkeydown="window.handleInlineKey(event)"
+                     onfocus="window.clearPlaceholder(this)"
+                     class="truncate transition-all outline-none rounded px-1 focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50 ${isBreak ? 'text-slate-500 font-black' : (isEmpty ? 'text-slate-500 group-hover:text-amber-500 uppercase' : 'group-hover:text-amber-500 uppercase')}">
                     ${isBreak ? '<i class="fas fa-circle-minus mr-2"></i> PAUSA / BLOQUEIO' : record.client}
                 </div>
             </div>
 
             <div class="w-full md:flex-1 md:px-4 text-xs md:text-sm flex justify-between md:block md:text-center">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Serviço:</span>
-                <div class="${isBreak ? 'text-slate-600 italic' : (isEmpty ? 'text-slate-600' : (record.service === 'A DEFINIR' ? 'text-red-500 font-black animate-pulse' : 'text-white font-medium'))} uppercase break-words md:truncate">
+                <div contenteditable="true"
+                     data-id="${id}" data-field="service" data-time="${record.time}" data-date="${record.date}"
+                     onblur="window.saveInlineEdit(this)"
+                     onkeydown="window.handleInlineKey(event)"
+                     onfocus="window.clearPlaceholder(this)"
+                     class="outline-none rounded px-1 focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50 ${isBreak ? 'text-slate-600 italic' : (isEmpty ? 'text-slate-500' : (record.service === 'A DEFINIR' ? 'text-red-500 font-black animate-pulse' : 'text-white font-medium'))} uppercase break-words md:truncate">
                     ${isBreak ? 'HORÁRIO RESERVADO' : record.service}
                 </div>
             </div>
 
-            <div class="w-full md:w-28 text-sm md:text-sm font-bold md:font-bold ${isBreak || isEmpty ? 'text-slate-600/50' : 'text-white md:text-amber-500/90'} flex justify-between md:block md:text-center">
+            <div class="w-full md:w-28 text-sm md:text-sm font-bold md:font-bold ${isBreak ? 'text-slate-600/50' : 'text-white md:text-amber-500/90'} flex justify-between md:block md:text-center">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Valor:</span>
-                ${isEmpty || isBreak ? '---' : `R$ ${record.value.toFixed(2)}`}
+                <div contenteditable="true"
+                     data-id="${id}" data-field="value" data-time="${record.time}" data-date="${record.date}"
+                     onblur="window.saveInlineEdit(this)"
+                     onkeydown="window.handleInlineKey(event)"
+                     onfocus="window.clearPlaceholder(this)"
+                     class="outline-none rounded px-1 focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50">
+                    ${isEmpty || isBreak ? '---' : record.value.toFixed(2)}
+                </div>
             </div>
 
             <div class="w-full md:w-32 flex justify-between md:justify-center items-center">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Pagamento:</span>
-                <span class="px-2 py-0.5 rounded-lg text-[10px] font-black border border-white/5 bg-white/[0.03] text-slate-500 uppercase tracking-tighter ${isEmpty || isBreak ? 'opacity-30' : ''}">
-                    ${isBreak ? 'N/A' : record.paymentMethod.toUpperCase()}
-                </span>
+                ${isBreak || isEmpty ? `
+                    <span class="px-2 py-0.5 rounded-lg text-[10px] font-black border-transparent bg-transparent text-slate-400 uppercase tracking-tighter text-center w-20">
+                        ${isBreak ? 'N/A' : ''}
+                    </span>
+                ` : `
+                    <div class="relative">
+                        <select onchange="window.saveInlineEdit(this)" 
+                                data-id="${id}" data-field="payment"
+                                class="appearance-none px-2 py-0.5 rounded-lg text-[10px] font-black border border-white/5 bg-white/[0.03] text-slate-500 uppercase tracking-tighter cursor-pointer focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50 outline-none transition-all pr-4 text-center w-24">
+                            ${['PIX', 'DINHEIRO', 'CARTÃO', 'PLANO MENSAL', 'CORTESIA'].map(p => `
+                                <option value="${p}" ${record.paymentMethod === p ? 'selected' : ''} class="bg-dark-900">${p}</option>
+                            `).join('')}
+                        </select>
+                        <i class="fas fa-chevron-down absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] text-slate-600 pointer-events-none"></i>
+                    </div>
+                `}
             </div>
 
             <div class="w-full md:w-24 flex justify-end gap-2 pt-4 md:pt-0 border-t md:border-0 border-white/5">
@@ -989,7 +1013,7 @@ const RecordRow = (record) => {
                         <i class="fas fa-trash-can text-xs"></i>
                     </button>
                 ` : `
-                    <button onclick="window.navigate('manage', '${record.time}')" 
+                    <button onclick="window.openAddModal('${record.time}', '${record.date}')" 
                             class="w-full md:w-auto px-4 py-2 md:py-1 rounded-lg bg-amber-500 text-dark-950 hover:bg-white hover:text-amber-600 text-[10px] font-black uppercase transition-all shadow-lg shadow-amber-500/10 active:scale-95 border border-transparent">
                         Agendar Horário
                     </button>
@@ -1651,6 +1675,10 @@ const pages = {
 function render() {
     const app = document.getElementById('app');
     
+    // Preserva a posição do scroll antes de limpar o HTML
+    const mainEl = app ? app.querySelector('main') : null;
+    const scrollPos = mainEl ? mainEl.scrollTop : 0;
+
     // Captura o foco e seleção antes de renderizar
     const activeId = document.activeElement ? document.activeElement.id : null;
     const selection = document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') 
@@ -1665,7 +1693,7 @@ function render() {
             ${Sidebar()}
             <div class="flex-1 flex flex-col min-w-0 h-full relative">
                 ${Header()}
-                <main class="flex-1 overflow-y-auto custom-scroll pb-24 md:pb-0">
+                <main id="mainContent" class="flex-1 overflow-y-auto custom-scroll pb-24 md:pb-0">
                     ${content}
                 </main>
                 ${MobileNav()}
@@ -1674,6 +1702,12 @@ function render() {
             ${state.isEditModalOpen ? EditModal() : ''}
         </div>
     `;
+
+    // Restaura a posição do scroll (importante para edições inline)
+    const newMain = document.getElementById('mainContent');
+    if (newMain) {
+        newMain.scrollTop = scrollPos;
+    }
 
     // Restaura o foco e posição do cursor
     if (activeId) {
@@ -1692,6 +1726,13 @@ function render() {
 // ==========================================
 if (!window.hasGlobalHandlers) {
     window.navigate = navigate;
+
+    window.openAddModal = (time = '', date = '') => {
+        state.editingRecord = { time, date };
+        state.clientSearch = '';
+        state.isEditModalOpen = true;
+        render();
+    };
 
     window.editAppointment = (id) => {
         const record = state.records.find(r => String(r.id) === String(id));
@@ -1865,6 +1906,73 @@ if (!window.hasGlobalHandlers) {
         finally { 
             btn.disabled = false; 
             btn.innerHTML = isEditing ? 'Salvar Alterações' : 'Salvar Agendamento'; 
+        }
+    };
+
+    window.saveInlineEdit = async (el) => {
+        const id = el.dataset.id;
+        const field = el.dataset.field;
+        let value = (el.tagName === 'SELECT' ? el.value : el.innerText).trim();
+        const time = el.dataset.time;
+        const date = el.dataset.date;
+
+        // Mapeamento de campos para o Supabase
+        const fieldMap = {
+            client: 'cliente',
+            service: 'procedimento',
+            value: 'valor',
+            payment: 'forma_pagamento'
+        };
+
+        const dbField = fieldMap[field];
+        if (!dbField) return;
+
+        // Se for valor, converter para número
+        let finalValue = value;
+        if (field === 'value') finalValue = parseFloat(value.replace(',', '.')) || 0;
+
+        try {
+            if (id === 'new') {
+                // Criar novo registro se pelo menos o cliente for preenchido
+                if (field === 'client' && value !== '' && value !== '---') {
+                    const recordData = {
+                        data: date,
+                        horario: time,
+                        cliente: value,
+                        procedimento: 'A DEFINIR',
+                        valor: 0,
+                        forma_pagamento: 'PIX'
+                    };
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/agendamentos`, {
+                        method: 'POST',
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                        body: JSON.stringify(recordData)
+                    });
+                    if (res.ok) syncFromSheet(state.sheetUrl);
+                }
+            } else {
+                // Atualizar registro existente
+                const recordData = { [dbField]: finalValue };
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/agendamentos?id=eq.${id}`, {
+                    method: 'PATCH',
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                    body: JSON.stringify(recordData)
+                });
+                if (res.ok) syncFromSheet(state.sheetUrl);
+            }
+        } catch (err) { console.error('Erro no salvamento inline:', err); }
+    };
+
+    window.handleInlineKey = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.target.blur();
+        }
+    };
+
+    window.clearPlaceholder = (el) => {
+        if (el.innerText === '---') {
+            el.innerText = '';
         }
     };
 
