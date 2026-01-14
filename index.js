@@ -546,6 +546,9 @@ function navigate(page, data = null) {
     if (page === 'card-profile') {
         state.selectedCardId = data;
     }
+    if (page === 'client-profile') {
+        state.selectedClientId = data;
+    }
     state.currentPage = page;
     state.clientSearch = ''; // Limpa a busca ao navegar
     state.isClientDropdownOpen = false;
@@ -1439,6 +1442,15 @@ const ClientsPage = () => {
     window.handleManagementSearch = (val) => {
         state.managementSearch = val;
         render();
+        // Restaurar foco
+        setTimeout(() => {
+            const input = document.getElementById('managementSearchInput');
+            if (input) {
+                input.focus();
+                const len = input.value.length;
+                input.setSelectionRange(len, len);
+            }
+        }, 50);
     };
 
     // --- Client Logic ---
@@ -1649,14 +1661,16 @@ const ClientsPage = () => {
                                     <div class="space-y-2">
                                         <label class="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Início do Plano</label>
                                         <input type="date" name="plano_inicio" 
+                                               style="color-scheme: dark"
                                                value="${state.editingClient?.plano_inicio || ''}"
-                                               class="w-full bg-dark-900 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold text-xs">
+                                               class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold text-xs">
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Último Pagamento</label>
                                         <input type="date" name="plano_pagamento" 
+                                               style="color-scheme: dark"
                                                value="${state.editingClient?.plano_pagamento || ''}"
-                                               class="w-full bg-dark-900 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold text-xs">
+                                               class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold text-xs">
                                     </div>
                                 </div>
                                 
@@ -2106,14 +2120,16 @@ const PlansPage = () => {
                                     <div class="md:col-span-2">
                                         <input type="date" value="${c.plano_inicio || ''}" 
                                                onchange="window.updateClientPlan('${c.id}', { plano_inicio: this.value })"
-                                               class="w-full bg-dark-950 border border-white/5 text-[10px] font-bold rounded-lg px-2 py-2 outline-none focus:border-amber-500 transition-all text-white/70 cursor-pointer hover:border-white/10">
+                                               style="color-scheme: dark"
+                                               class="w-full bg-dark-900 border border-white/5 text-[10px] font-bold rounded-2xl px-3 py-2.5 outline-none focus:border-amber-500/50 transition-all text-white cursor-pointer hover:bg-white/5">
                                     </div>
 
                                     <!-- Pagamento (Col 2) -->
                                     <div class="md:col-span-2">
                                         <input type="date" value="${c.plano_pagamento || ''}" 
                                                onchange="window.updateClientPlan('${c.id}', { plano_pagamento: this.value })"
-                                               class="w-full bg-dark-950 border border-white/5 text-[10px] font-bold rounded-lg px-2 py-2 outline-none focus:border-amber-500 transition-all text-white/70 cursor-pointer hover:border-white/10">
+                                               style="color-scheme: dark"
+                                               class="w-full bg-dark-900 border border-white/5 text-[10px] font-bold rounded-2xl px-3 py-2.5 outline-none focus:border-amber-500/50 transition-all text-white cursor-pointer hover:bg-white/5">
                                     </div>
 
                                     <!-- Limite Cortes (Col 2) -->
@@ -2475,8 +2491,9 @@ const ClientProfilePage = () => {
                                 <div class="space-y-2">
                                     <label class="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Data do Pagamento</label>
                                     <input type="date" name="data_pagamento" required 
+                                           style="color-scheme: dark"
                                            value="${new Date().toISOString().split('T')[0]}"
-                                           class="w-full bg-dark-900 border border-white/5 p-3 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold text-xs">
+                                           class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold text-xs">
                                 </div>
                                 <div class="space-y-2">
                                     <label class="text-[10px] font-black uppercase text-slate-500 ml-1 tracking-widest">Valor Pago</label>
@@ -2600,29 +2617,42 @@ const CardProfilePage = () => {
     
     const monthlyExpenses = cardExpenses.filter(e => e.vencimento.startsWith(monthPrefix));
     const totalSpentMonth = monthlyExpenses.reduce((acc, e) => acc + (parseFloat(e.valor) || 0), 0);
-    const availableLimit = (parseFloat(card.limite) || 0) - totalSpentMonth;
 
     window.saveCardEdit = async (field, value) => {
+        const originalValue = card[field]; // Store original value for rollback
         try {
-            if (field === 'limite') value = parseFloat(value.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
-            if (field === 'fechamento' || field === 'vencimento') value = parseInt(value) || 1;
-
             const updateData = { [field]: value };
+            // Atualização Otimista
+            Object.assign(card, updateData);
+            render(); // Re-render immediately with the new value
+
             const res = await fetch(`${SUPABASE_URL}/rest/v1/cartoes?id=eq.${card.id}`, {
                 method: 'PATCH',
                 headers: {
                     'apikey': SUPABASE_KEY,
                     'Authorization': 'Bearer ' + SUPABASE_KEY,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal' // Add this header
                 },
                 body: JSON.stringify(updateData)
             });
             if (res.ok) {
-                Object.assign(card, updateData);
-                fetchCards();
+                fetchCards(); // Re-fetch to ensure state is fully consistent
+            } else {
+                alert('Erro ao salvar alteração no banco.');
+                // Rollback optimistic update
+                Object.assign(card, { [field]: originalValue });
                 render();
+                fetchCards(); // Reverte para o estado do banco
             }
-        } catch (err) { console.error(err); }
+        } catch (err) { 
+            console.error('Erro no salvamento parcial do cartão:', err);
+            // Rollback em caso de erro de rede
+            Object.assign(card, { [field]: originalValue });
+            render();
+            alert('❌ Erro de conexão ao salvar alteração.');
+            fetchCards(); // Reverte para o estado do banco
+        }
     };
 
     return `
@@ -2657,36 +2687,23 @@ const CardProfilePage = () => {
                     </div>
                 </div>
             </div>
-
-            <!-- Dashboard do Cartão -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div class="glass-card p-6 rounded-[2rem] border border-white/5 relative overflow-hidden group">
-                    <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Limite Total</p>
-                    <div class="flex items-center gap-2">
-                        <span class="text-sm font-black text-slate-500">R$</span>
-                        <input type="text" 
-                               value="${(parseFloat(card.limite) || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}" 
-                               onblur="window.saveCardEdit('limite', this.value)"
-                               class="text-2xl font-black text-white bg-transparent border-none outline-none w-full">
-                    </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="glass-card p-6 rounded-[2rem] border border-white/5 space-y-2">
+                    <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Fechamento</p>
+                    <input type="date" 
+                           value="${card.fechamento}" 
+                           onchange="window.saveCardEdit('fechamento', this.value || null)"
+                           style="color-scheme: dark"
+                           class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold text-white">
                 </div>
-                <div class="glass-card p-6 rounded-[2rem] border border-amber-500/10 relative overflow-hidden group">
-                    <p class="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-1">Limite Disponível (Est.)</p>
-                    <h4 class="text-2xl font-black ${availableLimit < 0 ? 'text-rose-500' : 'text-emerald-500'}">R$ ${availableLimit.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h4>
-                </div>
-                <div class="glass-card p-6 rounded-[2rem] border border-white/5">
-                    <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Fechamento / Vencimento</p>
-                    <div class="flex items-center gap-2">
-                        <input type="number" 
-                               value="${card.fechamento}" 
-                               onblur="window.saveCardEdit('fechamento', this.value)"
-                               class="text-2xl font-black text-white bg-transparent border-none outline-none w-12 text-center">
-                        <span class="text-slate-500 font-bold">/</span>
-                        <input type="number" 
-                               value="${card.vencimento}" 
-                               onblur="window.saveCardEdit('vencimento', this.value)"
-                               class="text-2xl font-black text-amber-500 bg-transparent border-none outline-none w-12 text-center">
-                    </div>
+                <div class="glass-card p-6 rounded-[2rem] border border-white/5 space-y-2">
+                    <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Vencimento</p>
+                    <input type="date" 
+                           value="${card.vencimento}" 
+                           onchange="window.saveCardEdit('vencimento', this.value || null)"
+                           style="color-scheme: dark"
+                           class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold text-amber-500">
                 </div>
                 <div class="glass-card p-6 rounded-[2rem] border border-white/5">
                     <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Gasto no Mês</p>
@@ -2824,19 +2841,7 @@ const ExpensesPage = () => {
         } else if (field === 'descricao') {
             value = value.toUpperCase();
         } else if (field === 'vencimento' || field === 'data_pagamento') {
-            // Conversão de DD/MM/YYYY para YYYY-MM-DD
-            if (value === '---') {
-                value = null;
-            } else {
-                const parts = value.split('/');
-                if (parts.length === 3) {
-                    value = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                } else {
-                    // Se não estiver no formato correto, ignora ou tenta manter o anterior
-                    fetchExpenses();
-                    return;
-                }
-            }
+            value = el.value || null;
         }
 
         try {
@@ -2903,14 +2908,14 @@ const ExpensesPage = () => {
                                 <span class="md:hidden text-[9px] font-black text-slate-500 uppercase">Vencimento</span>
                                 <div class="flex items-center gap-2">
                                     <div class="w-2 h-2 rounded-full ${e.paga ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}"></div>
-                                    <div contenteditable="true" 
-                                         data-id="${e.id}" 
-                                         data-field="vencimento"
-                                         onblur="window.saveExpenseInline(this)"
-                                         onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
-                                         class="font-bold text-sm text-slate-300 px-2 py-1 rounded-lg outline-none focus:bg-white/5 transition-all">
-                                        ${new Date(e.vencimento + 'T12:00:00').toLocaleDateString('pt-BR')}
-                                    </div>
+                                    <input type="date" 
+                                           data-id="${e.id}" 
+                                           data-field="vencimento"
+                                           value="${e.vencimento}"
+                                           onblur="window.saveExpenseInline(this)"
+                                           onkeydown="if(event.key==='Enter'){this.blur()}"
+                                           style="color-scheme: dark"
+                                           class="bg-dark-900 border border-white/5 rounded-2xl px-3 py-2.5 outline-none focus:border-amber-500/50 font-bold text-xs text-slate-300 w-full cursor-pointer hover:bg-white/5 transition-all">
                                 </div>
                             </div>
 
@@ -2962,14 +2967,14 @@ const ExpensesPage = () => {
                             <!-- Data Pagamento (Editável) -->
                             <div class="w-full md:w-32 flex items-center justify-between md:justify-center md:px-4">
                                 <span class="md:hidden text-[9px] font-black text-slate-500 uppercase">Pagamento</span>
-                                <div contenteditable="true" 
-                                     data-id="${e.id}" 
-                                     data-field="data_pagamento"
-                                     onblur="window.saveExpenseInline(this)"
-                                     onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
-                                     class="text-slate-500 text-xs font-bold px-2 py-1 rounded-lg outline-none focus:bg-white/5 transition-all text-center">
-                                    ${e.data_pagamento ? new Date(e.data_pagamento + 'T12:00:00').toLocaleDateString('pt-BR') : '---'}
-                                </div>
+                                <input type="date" 
+                                       data-id="${e.id}" 
+                                       data-field="data_pagamento"
+                                       value="${e.data_pagamento || ''}"
+                                       onblur="window.saveExpenseInline(this)"
+                                       onkeydown="if(event.key==='Enter'){this.blur()}"
+                                       style="color-scheme: dark"
+                                       class="bg-dark-900 border border-white/5 rounded-2xl px-3 py-2.5 outline-none focus:border-amber-500/50 text-slate-500 text-[10px] font-bold w-full cursor-pointer hover:bg-white/5 transition-all text-center">
                             </div>
 
                             <!-- Ações -->
@@ -3044,7 +3049,7 @@ const ExpensesPage = () => {
  */
 const CardsPage = () => {
     window.openCardModal = (card = null) => {
-        state.editingCard = card || { nome: '', banco: '', limite: 0, fechamento: 1, vencimento: 5 };
+        state.editingCard = card || { nome: '', banco: '', fechamento: '', vencimento: '' };
         state.isCardModalOpen = true;
         render();
     };
@@ -3061,9 +3066,8 @@ const CardsPage = () => {
         const data = {
             nome: formData.get('nome').toUpperCase(),
             banco: formData.get('banco').toUpperCase(),
-            limite: parseFloat(formData.get('limite')) || 0,
-            fechamento: parseInt(formData.get('fechamento')),
-            vencimento: parseInt(formData.get('vencimento'))
+            fechamento: formData.get('fechamento') || null,
+            vencimento: formData.get('vencimento') || null
         };
 
         const id = state.editingCard.id;
@@ -3076,15 +3080,24 @@ const CardsPage = () => {
                 headers: { 
                     'apikey': SUPABASE_KEY, 
                     'Authorization': 'Bearer ' + SUPABASE_KEY, 
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
                 },
                 body: JSON.stringify(data)
             });
             if (res.ok) {
                 window.closeCardModal();
                 fetchCards();
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                console.error('Erro Supabase:', errorData);
+                if (errorData.code === '23505') alert('❌ ERRO: Já existe um cartão com este nome.');
+                else alert('❌ Erro ao salvar: ' + (errorData.message || 'Falha no banco de dados.'));
             }
-        } catch (err) { console.error(err); }
+        } catch (err) { 
+            console.error(err); 
+            alert('❌ Erro de conexão ao salvar cartão.');
+        }
     };
 
     window.deleteCard = async (id) => {
@@ -3103,25 +3116,32 @@ const CardsPage = () => {
         const field = el.dataset.field;
         let value = el.innerText.trim();
 
-        if (field === 'limite') {
-            value = parseFloat(value.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
-        } else if (field === 'nome' || field === 'banco') {
+        if (field === 'nome' || field === 'banco') {
             value = value.toUpperCase();
         } else if (field === 'fechamento' || field === 'vencimento') {
-            value = parseInt(value) || 1;
+            value = el.value || null; // Pega value do input date
         }
 
         try {
+            // Atualização Otimista
+            const card = state.cards.find(c => c.id == id);
+            if (card) card[field] = value;
+            render();
+
             const res = await fetch(`${SUPABASE_URL}/rest/v1/cartoes?id=eq.${id}`, {
                 method: 'PATCH',
                 headers: { 
                     'apikey': SUPABASE_KEY, 
                     'Authorization': 'Bearer ' + SUPABASE_KEY, 
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
                 },
                 body: JSON.stringify({ [field]: value })
             });
             if (res.ok) {
+                fetchCards();
+            } else {
+                alert('Erro ao salvar alteração.');
                 fetchCards();
             }
         } catch (err) { console.error('Erro no salvamento inline de cartão:', err); }
@@ -3132,7 +3152,7 @@ const CardsPage = () => {
             <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 text-sm">
                 <div>
                     <h2 class="text-3xl font-display font-black">Meus Cartões</h2>
-                    <p class="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1">Limites e Cartões Ativos</p>
+                    <p class="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1">Datas de Fechamento e Vencimento</p>
                 </div>
                 <button onclick="window.openCardModal()" class="bg-amber-500 text-dark-950 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-amber-400 transition-all shadow-xl shadow-amber-500/20 border border-amber-400 flex items-center gap-2">
                     <i class="fas fa-plus"></i> Cadastrar Cartão
@@ -3177,31 +3197,26 @@ const CardsPage = () => {
                                 class="text-2xl font-black text-white uppercase outline-none px-1 rounded hover:bg-white/5 truncate">${c.nome}</h2>
                         </div>
 
-                        <div class="flex justify-between items-end relative z-10 border-t border-white/5 pt-4">
-                            <div onclick="event.stopPropagation()">
-                                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Limite Total</p>
-                                <div class="flex items-center gap-1">
-                                    <span class="text-sm font-black text-white/50">R$</span>
-                                    <span contenteditable="true" 
-                                          data-id="${c.id}" 
-                                          data-field="limite"
-                                          onblur="window.saveCardInline(this)"
-                                          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
-                                          class="text-xl font-black text-white outline-none px-1 rounded hover:bg-white/5">
-                                        ${(parseFloat(c.limite) || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-                                    </span>
-                                </div>
+                        <div class="flex justify-between items-end relative z-10 border-t border-white/5 pt-4 gap-2">
+                            <div onclick="event.stopPropagation()" class="flex-1">
+                                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Fechamento</p>
+                                <input type="date" 
+                                       data-id="${c.id}" 
+                                       data-field="fechamento"
+                                       style="color-scheme: dark"
+                                       value="${String(c.fechamento || '').includes('-') ? c.fechamento : ''}"
+                                       onchange="window.saveCardInline(this)"
+                                       class="w-full bg-dark-900 border border-white/5 p-3 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold text-xs text-white cursor-pointer hover:bg-white/5">
                             </div>
-                            <div class="text-right" onclick="event.stopPropagation()">
-                                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Vence dia</p>
-                                <span contenteditable="true" 
-                                      data-id="${c.id}" 
-                                      data-field="vencimento"
-                                      onblur="window.saveCardInline(this)"
-                                      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
-                                      class="text-2xl font-black text-amber-500 outline-none px-1 rounded hover:bg-white/5">
-                                    ${String(c.vencimento).padStart(2, '0')}
-                                </span>
+                            <div class="text-right flex-1" onclick="event.stopPropagation()">
+                                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5 mr-1">Vencimento</p>
+                                <input type="date" 
+                                       data-id="${c.id}" 
+                                       data-field="vencimento"
+                                       style="color-scheme: dark"
+                                       value="${String(c.vencimento || '').includes('-') ? c.vencimento : ''}"
+                                       onchange="window.saveCardInline(this)"
+                                       class="w-full bg-dark-900 border border-white/5 p-3 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold text-xs text-amber-500 cursor-pointer hover:bg-white/5 text-right">
                             </div>
                         </div>
                     </div>
@@ -3222,30 +3237,29 @@ const CardsPage = () => {
                             <div class="space-y-2">
                                 <label class="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Nome do Cartão (Apelido)</label>
                                 <input type="text" name="nome" required value="${state.editingCard?.nome || ''}" placeholder="EX: NUBANK PF, INTER..."
-                                       class="w-full bg-dark-950 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold uppercase text-sm">
+                                       class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold uppercase text-sm">
                             </div>
                             <div class="space-y-2">
                                 <label class="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Banco / Emissor</label>
                                 <input type="text" name="banco" value="${state.editingCard?.banco || ''}" placeholder="EX: ITAÚ, BRADESCO..."
-                                       class="w-full bg-dark-950 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold uppercase text-sm">
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Limite (R$)</label>
-                                <input type="number" step="0.01" name="limite" required value="${state.editingCard?.limite || ''}"
-                                       class="w-full bg-dark-950 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold text-sm">
+                                       class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold uppercase text-sm">
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="space-y-2">
-                                    <label class="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Dia Fechamento</label>
-                                    <input type="number" name="fechamento" min="1" max="31" required value="${state.editingCard?.fechamento || 1}"
-                                           class="w-full bg-dark-950 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold text-sm">
+                                    <label class="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Data Fechamento</label>
+                                    <input type="date" name="fechamento" 
+                                           style="color-scheme: dark"
+                                           value="${String(state.editingCard?.fechamento || '').includes('-') ? state.editingCard.fechamento : ''}"
+                                           class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold text-sm">
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Dia Vencimento</label>
-                                    <input type="number" name="vencimento" min="1" max="31" required value="${state.editingCard?.vencimento || 5}"
-                                           class="w-full bg-dark-950 border border-white/5 p-4 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold text-sm">
+                                    <label class="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Data Vencimento</label>
+                                    <input type="date" name="vencimento" 
+                                           style="color-scheme: dark"
+                                           value="${String(state.editingCard?.vencimento || '').includes('-') ? state.editingCard.vencimento : ''}"
+                                           class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold text-sm">
+                                </div>
                             </div>
-                        </div>
                         <button type="submit" class="w-full bg-amber-500 text-dark-950 font-black py-4 rounded-xl border border-transparent shadow-lg shadow-amber-500/20 active:scale-95 uppercase tracking-widest text-xs transition-all mt-2">
                             ${state.editingCard?.id ? 'Salvar Alterações' : 'Cadastrar Cartão'}
                         </button>
