@@ -1155,13 +1155,22 @@ const EditModal = () => {
 
                     <div class="space-y-1">
                         <label class="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Serviço</label>
-                        <select name="service" required onchange="window.updatePriceByService(this.value)"
-                                class="w-full bg-dark-900 border border-white/5 p-3 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold text-sm appearance-none">
-                            <option value="">Selecione...</option>
-                            ${state.procedures.map(p => `
-                                <option value="${p.nome}" ${(r.service || r.procedimento) === p.nome ? 'selected' : ''}>${p.nome.toUpperCase()}</option>
-                            `).join('')}
-                        </select>
+                        <div class="relative">
+                            <input type="text" 
+                                   id="serviceSearchInputModal"
+                                   placeholder="Digite o serviço..."
+                                   autocomplete="off"
+                                   value="${(r.service || r.procedimento) || ''}"
+                                   onfocus="window.openProcedureDropdownModal()"
+                                   oninput="window.filterProceduresModal(this.value)"
+                                   onkeydown="window.handleEnterSelection(event, 'procedureDropdownModal')"
+                                   class="w-full bg-dark-900 border border-white/5 p-3 rounded-xl outline-none focus:border-amber-500/50 transition-all font-bold text-sm uppercase">
+                            
+                            <input type="hidden" name="service" value="${(r.service || r.procedimento) || ''}">
+
+                            <div id="procedureDropdownModal" class="hidden absolute z-[110] left-0 right-0 mt-2 bg-dark-900 border border-white/10 rounded-2xl shadow-2xl max-h-48 overflow-y-auto custom-scroll p-2">
+                            </div>
+                        </div>
                     </div>
 
                     <div class="space-y-1">
@@ -1402,15 +1411,20 @@ const ManagePage = () => {
                     <div class="space-y-2">
                         <label class="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">Serviço/Procedimento</label>
                         <div class="relative">
-                            <select name="service" required onchange="window.updatePriceByService(this.value)"
-                                    class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold appearance-none">
-                                <option value="">Selecione...</option>
-                                ${state.procedures.map(p => `
-                                <option value="${p.nome}" data-price="${p.preco}" ${(initialValues.service || initialValues.procedimento) === p.nome ? 'selected' : ''} class="uppercase">${p.nome.toUpperCase()}</option>
-                                `).join('')}
-                                <option value="Outro" ${(initialValues.service || initialValues.procedimento) && !state.procedures.find(p => p.nome === (initialValues.service || initialValues.procedimento)) ? 'selected' : ''}>Outro / Personalizado</option>
-                            </select>
-                            <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"></i>
+                            <input type="text" 
+                                   id="serviceSearchInput"
+                                   placeholder="Qual será o serviço?"
+                                   autocomplete="off"
+                                   value="${(initialValues.service || initialValues.procedimento) || ''}"
+                                   onfocus="window.openProcedureDropdown()"
+                                   oninput="window.filterProcedures(this.value)"
+                                   onkeydown="window.handleEnterSelection(event, 'procedureDropdown')"
+                                   class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold uppercase">
+                            
+                            <input type="hidden" name="service" value="${(initialValues.service || initialValues.procedimento) || ''}">
+
+                            <div id="procedureDropdown" class="hidden absolute z-50 left-0 right-0 mt-2 bg-dark-900 border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto custom-scroll p-2">
+                            </div>
                         </div>
                     </div>
 
@@ -2591,18 +2605,80 @@ const ClientProfilePage = () => {
                         <div class="p-12 text-center text-slate-500 italic">Este cliente ainda não possui agendamentos registrados.</div>
                     ` : `
                         <div class="divide-y divide-white/5 overflow-x-auto">
-                            ${clientRecords.map(r => `
-                                <div class="px-8 py-4 flex items-center justify-between hover:bg-white/[0.02] min-w-[500px]">
-                                    <div class="flex items-center gap-6">
-                                        <div class="text-amber-500 font-black text-sm w-24">${new Date(r.date + 'T00:00:00').toLocaleDateString('pt-BR')}</div>
-                                        <div>
-                                            <p class="text-white font-bold text-sm uppercase">${r.service}</p>
-                                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">${r.time} • ${r.paymentMethod}</p>
+                            ${clientRecords.map(r => {
+                                const id = r.id;
+                                const rowId = `hist_${r.id}`;
+                                return `
+                                <div class="px-8 py-4 flex flex-col md:flex-row items-center justify-between hover:bg-white/[0.02] min-w-[500px] gap-4 group relative" style="z-index: 1;">
+                                    <div class="flex items-center gap-6 flex-1">
+                                        <!-- Data -->
+                                        <div class="flex items-center gap-1.5 w-28 flex-shrink-0">
+                                            <i class="far fa-calendar-alt text-[9px] text-slate-500"></i>
+                                            <input type="date" 
+                                                   data-id="${id}" data-ui-id="${rowId}" data-field="date"
+                                                   value="${r.date}"
+                                                   onchange="window.saveInlineEdit(this)"
+                                                   style="color-scheme: dark"
+                                                   class="bg-transparent border-none text-[12px] font-bold text-amber-500 outline-none cursor-pointer hover:bg-white/5 rounded px-1 transition-all">
+                                        </div>
+
+                                        <!-- Serviço e Detalhes -->
+                                        <div class="flex-1 relative">
+                                            <div contenteditable="true"
+                                                 data-id="${id}" data-ui-id="${rowId}" data-field="service"
+                                                 onfocus="this.parentElement.parentElement.parentElement.style.zIndex='100'; window.selectAll(this)"
+                                                 onblur="this.parentElement.parentElement.parentElement.style.zIndex='1'; window.saveInlineEdit(this)"
+                                                 onkeydown="window.handleInlineKey(event)"
+                                                 oninput="window.showInlineAutocomplete(this)"
+                                                 class="text-white font-bold text-sm uppercase outline-none focus:bg-amber-500/10 rounded px-1 transition-all">
+                                                ${r.service}
+                                            </div>
+                                            <!-- Dropdown Autocomplete -->
+                                            <div id="inlineAutocomplete_service_${rowId}" class="hidden absolute left-0 right-0 top-full mt-1 bg-dark-800 border border-white/10 rounded-xl shadow-2xl z-50 p-1"></div>
+                                            
+                                            <div class="flex items-center gap-2 mt-1">
+                                                <!-- Horário -->
+                                                <input type="time" 
+                                                       data-id="${id}" data-ui-id="${rowId}" data-field="time"
+                                                       value="${r.time.substring(0, 5)}"
+                                                       onchange="window.saveInlineEdit(this)"
+                                                       style="color-scheme: dark"
+                                                       class="bg-transparent border-none text-[10px] text-slate-500 font-bold outline-none cursor-pointer hover:bg-white/5 rounded px-1 transition-all">
+                                                <span class="text-[10px] text-slate-600">•</span>
+                                                <!-- Pagamento -->
+                                                <select onchange="window.saveInlineEdit(this)" 
+                                                        data-id="${id}" data-ui-id="${rowId}" data-field="payment"
+                                                        class="appearance-none bg-transparent border-none text-[10px] text-slate-500 font-bold uppercase tracking-widest outline-none cursor-pointer hover:bg-white/5 rounded px-1 transition-all">
+                                                    ${['PIX', 'DINHEIRO', 'CARTÃO', 'PLANO MENSAL', 'CORTESIA'].map(p => `
+                                                        <option value="${p}" ${r.paymentMethod === p ? 'selected' : ''} class="bg-dark-950">${p}</option>
+                                                    `).join('')}
+                                                </select>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="text-sm font-black text-white">R$ ${(parseFloat(r.value) || 0).toFixed(2)}</div>
+
+                                    <!-- Valor e Ações -->
+                                    <div class="flex items-center gap-6">
+                                        <div class="flex items-center gap-1">
+                                            <span class="text-xs font-black text-slate-500">R$</span>
+                                            <div contenteditable="true"
+                                                 data-id="${id}" data-ui-id="${rowId}" data-field="value"
+                                                 onfocus="window.selectAll(this)"
+                                                 onblur="window.saveInlineEdit(this)"
+                                                 onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+                                                 class="text-sm font-black text-white outline-none focus:bg-amber-500/10 rounded px-1 transition-all">
+                                                ${(parseFloat(r.value) || 0).toFixed(2)}
+                                            </div>
+                                        </div>
+                                        
+                                        <button onclick="window.cancelAppointment('${r.id}')" 
+                                                class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all transform active:scale-95 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                            <i class="fas fa-trash-can text-xs"></i>
+                                        </button>
+                                    </div>
                                 </div>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </div>
                     `}
                 </div>
@@ -2707,15 +2783,25 @@ const CardProfilePage = () => {
                             <input type="text" 
                                    value="${card.nome}" 
                                    onblur="window.saveCardEdit('nome', this.value.toUpperCase())"
-                                   class="text-2xl md:text-4xl font-display font-black text-white bg-transparent border-b-2 border-transparent hover:border-amber-500/30 focus:border-amber-500 outline-none transition-all px-1 uppercase w-full md:w-auto">
+                                   class="text-3xl md:text-5xl font-display font-black text-white bg-transparent border-b-2 border-transparent hover:border-amber-500/30 focus:border-amber-500 outline-none transition-all px-1 uppercase w-full md:w-auto">
                         </div>
-                        <div class="text-slate-500 font-bold uppercase tracking-widest text-[10px] md:text-xs mt-1 flex items-center justify-center md:justify-start gap-2">
-                            <i class="fas fa-university"></i>
-                            <input type="text" 
-                                   value="${card.banco || ''}" 
-                                   placeholder="Adicionar Banco"
-                                   onblur="window.saveCardEdit('banco', this.value.toUpperCase())"
-                                   class="bg-transparent border-b border-transparent hover:border-amber-500/30 focus:border-amber-500 outline-none transition-all px-1 uppercase">
+                        <div class="text-slate-500 font-bold uppercase tracking-widest text-xs md:text-sm mt-1 flex flex-col md:flex-row md:items-center justify-center md:justify-start gap-1 md:gap-6">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-university text-amber-500/50"></i>
+                                <input type="text" 
+                                       value="${card.banco || ''}" 
+                                       placeholder="Adicionar Banco"
+                                       onblur="window.saveCardEdit('banco', this.value.toUpperCase())"
+                                       class="bg-transparent border-b border-transparent hover:border-amber-500/30 focus:border-amber-500 outline-none transition-all px-1 uppercase w-40 font-black">
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-user-circle text-amber-500/50"></i>
+                                <input type="text" 
+                                       value="${card.titular || ''}" 
+                                       placeholder="Adicionar Titular"
+                                       onblur="window.saveCardEdit('titular', this.value.toUpperCase())"
+                                       class="bg-transparent border-b border-transparent hover:border-amber-500/30 focus:border-amber-500 outline-none transition-all px-1 uppercase w-56 font-black">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2995,7 +3081,12 @@ const ExpensesPage = () => {
         <div class="px-4 pt-6 sm:px-8 sm:pt-6 space-y-6 animate-in fade-in duration-500 pb-32">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 text-sm">
                 <div>
-                    <h2 class="text-3xl font-display font-black">Saídas <span class="text-rose-500">${periodFilter === 'total' ? 'Totais' : monthsLong[targetMonth-1]}</span></h2>
+                    <h2 class="text-3xl font-display font-black">Saídas <span class="text-rose-500">${
+                        periodFilter === 'total' ? 'Totais' : 
+                        periodFilter === 'diario' ? `${state.filters.day} de ${monthsLong[targetMonth-1]}` : 
+                        periodFilter === 'semanal' ? 'da Semana' : 
+                        `${monthsLong[targetMonth-1]}${targetYear !== new Date().getFullYear() ? ' ' + targetYear : ''}`
+                    }</span></h2>
                     <div class="flex items-center gap-2 mt-2">
                         <div class="flex bg-dark-900 border border-white/5 rounded-xl p-0.5">
                             ${['diario', 'semanal', 'mensal', 'total'].map(p => `
@@ -3301,7 +3392,7 @@ const ExpensesPage = () => {
  */
 const CardsPage = () => {
     window.openCardModal = (card = null) => {
-        state.editingCard = card || { nome: '', banco: '', fechamento: '', vencimento: '' };
+        state.editingCard = card || { nome: '', banco: '', titular: '', fechamento: '', vencimento: '' };
         state.isCardModalOpen = true;
         render();
     };
@@ -3318,6 +3409,7 @@ const CardsPage = () => {
         const data = {
             nome: formData.get('nome').toUpperCase(),
             banco: formData.get('banco').toUpperCase(),
+            titular: formData.get('titular').toUpperCase(),
             fechamento: formData.get('fechamento') || null,
             vencimento: formData.get('vencimento') || null
         };
@@ -3368,7 +3460,7 @@ const CardsPage = () => {
         const field = el.dataset.field;
         let value = el.innerText.trim();
 
-        if (field === 'nome' || field === 'banco') {
+        if (field === 'nome' || field === 'banco' || field === 'titular') {
             value = value.toUpperCase();
         } else if (field === 'fechamento' || field === 'vencimento') {
             value = el.value || null; // Pega value do input date
@@ -3423,14 +3515,24 @@ const CardsPage = () => {
                                 <div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-amber-500 flex-shrink-0">
                                     <i class="fas fa-credit-card text-xl"></i>
                                 </div>
-                                <h3 contenteditable="true" 
-                                    onclick="event.stopPropagation()"
-                                    onfocus="window.selectAll(this)"
-                                    data-id="${c.id}" 
-                                    data-field="banco"
-                                    onblur="window.saveCardInline(this)"
-                                    onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
-                                    class="text-[10px] font-black text-slate-500 uppercase tracking-widest outline-none px-1 rounded hover:bg-white/5">${c.banco || 'BANCO'}</h3>
+                                <div class="flex flex-col min-w-0">
+                                    <h3 contenteditable="true" 
+                                        onclick="event.stopPropagation()"
+                                        onfocus="window.selectAll(this)"
+                                        data-id="${c.id}" 
+                                        data-field="banco"
+                                        onblur="window.saveCardInline(this)"
+                                        onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+                                        class="text-sm font-black text-slate-500 uppercase tracking-widest outline-none px-1 rounded hover:bg-white/5 truncate">${c.banco || 'BANCO'}</h3>
+                                    <h4 contenteditable="true" 
+                                        onclick="event.stopPropagation()"
+                                        onfocus="window.selectAll(this)"
+                                        data-id="${c.id}" 
+                                        data-field="titular"
+                                        onblur="window.saveCardInline(this)"
+                                        onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+                                        class="text-xs font-bold text-slate-400 uppercase tracking-tighter outline-none px-1 rounded hover:bg-white/5 truncate -mt-1">${c.titular || 'TITULAR'}</h4>
+                                </div>
                             </div>
                             <div class="flex space-x-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
                                 <button onclick="event.stopPropagation(); window.openCardModal(${JSON.stringify(c).replace(/"/g, '&quot;')})" class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-dark-950 transition-all flex items-center justify-center border border-amber-500/20">
@@ -3450,7 +3552,7 @@ const CardsPage = () => {
                                 data-field="nome"
                                 onblur="window.saveCardInline(this)"
                                 onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
-                                class="text-2xl font-black text-white uppercase outline-none px-1 rounded hover:bg-white/5 truncate">${c.nome}</h2>
+                                class="text-4xl font-black text-white uppercase outline-none px-1 rounded hover:bg-white/5 truncate">${c.nome}</h2>
                         </div>
 
                         <div class="grid grid-cols-1 xs:grid-cols-2 gap-3 relative z-10 border-t border-white/5 pt-4 mt-2">
@@ -3498,6 +3600,11 @@ const CardsPage = () => {
                             <div class="space-y-2">
                                 <label class="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Banco / Emissor</label>
                                 <input type="text" name="banco" value="${state.editingCard?.banco || ''}" placeholder="EX: ITAÚ, BRADESCO..."
+                                       class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold uppercase text-sm">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Titular do Cartão</label>
+                                <input type="text" name="titular" value="${state.editingCard?.titular || ''}" placeholder="EX: MEU NOME, ESPOSA..."
                                        class="w-full bg-dark-900 border border-white/5 p-4 rounded-2xl outline-none focus:border-amber-500/50 transition-all font-bold uppercase text-sm">
                             </div>
                             <div class="grid grid-cols-2 gap-4">
@@ -3755,50 +3862,51 @@ if (!window.hasGlobalHandlers) {
 
     // Helper para detectar ciclo e uso do plano
     window.getClientPlanUsage = (clientName) => {
-        if (!clientName) return null;
-        const client = state.clients.find(c => (c.nome || '').trim().toLowerCase() === clientName.trim().toLowerCase());
-        if (!client || !client.plano_inicio || client.plano === 'Nenhum' || client.plano === 'Pausado') return null;
+    if (!clientName) return null;
+    const client = state.clients.find(c => (c.nome || '').trim().toLowerCase() === clientName.trim().toLowerCase());
+    if (!client || client.plano === 'Nenhum' || client.plano === 'Pausado') return null;
+    
+    // Início padrão
+    let cycleStartDate = client.plano_inicio || client.plano_pagamento;
+    
+    // Pega o pagamento mais recente (inclusive futuro, pois indica uma renovação/reset)
+    if (state.allPlanPayments && state.allPlanPayments.length > 0) {
+        const clientPayments = state.allPlanPayments
+            .filter(p => p.cliente_id == client.id)
+            .sort((a, b) => b.data_pagamento.localeCompare(a.data_pagamento));
         
-        // Data de início do plano (meia-noite)
-        const start = new Date(client.plano_inicio + 'T00:00:00');
-        // Hoje (meia-noite)
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        
-        // Diferença em dias
-        const diffTime = today - start;
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-        
-        // Ciclos de 30 dias
-        const cycleIndex = Math.floor(diffDays / 30);
-        
-        // Início do ciclo atual
-        const currentCycleStart = new Date(start.getTime());
-        currentCycleStart.setDate(start.getDate() + (cycleIndex * 30));
-        
-        // Fim do ciclo atual (exclusivo)
-        const nextCycleStart = new Date(currentCycleStart.getTime());
-        nextCycleStart.setDate(currentCycleStart.getDate() + 30);
-        
-        const visits = state.records.filter(r => {
-            const rClient = (r.client || '').trim().toLowerCase();
-            const cName = client.nome.trim().toLowerCase();
-            if (rClient !== cName) return false;
-            
-            const rDate = new Date(r.date + 'T00:00:00');
-            return rDate >= currentCycleStart && rDate < nextCycleStart;
-        }).length;
+        if (clientPayments.length > 0) {
+            cycleStartDate = clientPayments[0].data_pagamento;
+        }
+    }
 
-        const limit = parseInt(client.limite_cortes) || 4;
+    if (!cycleStartDate) return null;
+
+    const visits = state.records.filter(r => {
+        const rClient = (r.client || '').trim().toLowerCase();
+        const cName = client.nome.trim().toLowerCase();
+        if (rClient !== cName) return false;
         
-        return {
-            usageCount: visits,
-            nextVisit: visits + 1,
-            isWithinLimit: visits < limit,
-            cycleDay: (diffDays % 30) + 1,
-            limit: limit
-        };
+        // Comparação de string YYYY-MM-DD é segura
+        const isFromCycle = r.date >= cycleStartDate;
+        
+        // CRITÉRIO RESTRITO: Só conta se o procedimento for explicitamente "Xº DIA"
+        const planServicePattern = /\d+º\s*DIA/i;
+        const isPlanService = planServicePattern.test(r.service || '');
+        
+        return isFromCycle && isPlanService;
+    }).length;
+
+    const limit = parseInt(client.limite_cortes) || 4;
+    
+    return {
+        usageCount: visits,
+        nextVisit: visits + 1,
+        isWithinLimit: visits < limit,
+        startDate: cycleStartDate,
+        limit: limit
     };
+};
 
     // --- Helpers de Busca de Clientes (Global) ---
     window.openClientDropdown = () => {
@@ -3807,12 +3915,28 @@ if (!window.hasGlobalHandlers) {
         if (dropdown && input) {
             const val = input.value;
             const filtered = state.clients.filter(c => c.nome.toLowerCase().includes(val.toLowerCase()));
-            dropdown.innerHTML = filtered.map(c => `
-                <div onclick="window.selectClient('${c.nome.replace(/'/g, "\\'")}')" 
-                     class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
-                    <span class="font-bold text-slate-300 group-hover:text-white">${c.nome}</span>
-                </div>
-            `).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum cliente encontrado.</div>`;
+            dropdown.innerHTML = filtered.map(c => {
+                const planStats = window.getClientPlanUsage(c.nome);
+                const hasPlan = planStats !== null;
+                
+                return `
+                    <div onclick="window.selectClient('${c.nome.replace(/'/g, "\\'")}')" 
+                         class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${c.nome}</span>
+                            <span class="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">${c.telefone || 'SEM TELEFONE...'}</span>
+                        </div>
+                        ${hasPlan ? `
+                            <div class="text-right">
+                                <span class="${planStats.usageCount >= planStats.limit ? 'text-rose-500' : 'text-emerald-500'} font-black text-[10px] block">
+                                    ${planStats.usageCount}/${planStats.limit}
+                                </span>
+                                <span class="text-[8px] text-slate-600 font-black uppercase tracking-tighter block">CORTES</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum cliente encontrado.</div>`;
             dropdown.classList.remove('hidden');
         }
     };
@@ -3824,12 +3948,28 @@ if (!window.hasGlobalHandlers) {
         if (hidden) hidden.value = val;
         if (dropdown) {
             const filtered = state.clients.filter(c => c.nome.toLowerCase().includes(val.toLowerCase()));
-            dropdown.innerHTML = filtered.map(c => `
-                <div onclick="window.selectClient('${c.nome.replace(/'/g, "\\'")}')" 
-                     class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
-                    <span class="font-bold text-slate-300 group-hover:text-white">${c.nome}</span>
-                </div>
-            `).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum cliente encontrado.</div>`;
+            dropdown.innerHTML = filtered.map(c => {
+                const planStats = window.getClientPlanUsage(c.nome);
+                const hasPlan = planStats !== null;
+                
+                return `
+                    <div onclick="window.selectClient('${c.nome.replace(/'/g, "\\'")}')" 
+                         class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${c.nome}</span>
+                            <span class="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">${c.telefone || 'SEM TELEFONE...'}</span>
+                        </div>
+                        ${hasPlan ? `
+                            <div class="text-right">
+                                <span class="${planStats.usageCount >= planStats.limit ? 'text-rose-500' : 'text-emerald-500'} font-black text-[10px] block">
+                                    ${planStats.usageCount}/${planStats.limit}
+                                </span>
+                                <span class="text-[8px] text-slate-600 font-black uppercase tracking-tighter block">CORTES</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum cliente encontrado.</div>`;
             dropdown.classList.remove('hidden');
         }
     };
@@ -3847,21 +3987,14 @@ if (!window.hasGlobalHandlers) {
         if (usage && usage.isWithinLimit) {
             const form = document.querySelector('form[onsubmit="window.saveNewRecord(event)"]');
             if (form) {
-                const serviceSelect = form.querySelector('select[name="service"]');
+                const serviceInput = form.querySelector('#serviceSearchInput');
+                const serviceHidden = form.querySelector('input[name="service"]');
                 const valueInput = form.querySelector('input[name="value"]');
                 const paymentSelect = form.querySelector('select[name="payment"]');
                 
-                if (serviceSelect) {
-                    const planServiceName = `${usage.nextVisit}º DIA`;
-                    // Adiciona opção temporária se não existir
-                    if (!Array.from(serviceSelect.options).some(o => o.value === planServiceName)) {
-                        const opt = document.createElement('option');
-                        opt.value = planServiceName;
-                        opt.text = planServiceName;
-                        serviceSelect.add(opt);
-                    }
-                    serviceSelect.value = planServiceName;
-                }
+                const planServiceName = `${usage.nextVisit}º DIA`;
+                if (serviceInput) serviceInput.value = planServiceName;
+                if (serviceHidden) serviceHidden.value = planServiceName;
                 if (valueInput) valueInput.value = "0";
                 if (paymentSelect) paymentSelect.value = "PLANO MENSAL";
             }
@@ -3875,12 +4008,28 @@ if (!window.hasGlobalHandlers) {
         if (dropdown && input) {
             const val = input.value;
             const filtered = state.clients.filter(c => c.nome.toLowerCase().includes(val.toLowerCase()));
-            dropdown.innerHTML = filtered.map(c => `
-                <div onclick="window.selectClientModal('${c.nome.replace(/'/g, "\\'")}')" 
-                     class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
-                    <span class="font-bold text-slate-300 group-hover:text-white">${c.nome}</span>
-                </div>
-            `).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum cliente encontrado.</div>`;
+            dropdown.innerHTML = filtered.map(c => {
+                const planStats = window.getClientPlanUsage(c.nome);
+                const hasPlan = planStats !== null;
+                
+                return `
+                    <div onclick="window.selectClientModal('${c.nome.replace(/'/g, "\\'")}')" 
+                         class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${c.nome}</span>
+                            <span class="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">${c.telefone || 'SEM TELEFONE...'}</span>
+                        </div>
+                        ${hasPlan ? `
+                            <div class="text-right">
+                                <span class="${planStats.usageCount >= planStats.limit ? 'text-rose-500' : 'text-emerald-500'} font-black text-[10px] block">
+                                    ${planStats.usageCount}/${planStats.limit}
+                                </span>
+                                <span class="text-[8px] text-slate-600 font-black uppercase tracking-tighter block">CORTES</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum cliente encontrado.</div>`;
             dropdown.classList.remove('hidden');
         }
     };
@@ -3892,12 +4041,28 @@ if (!window.hasGlobalHandlers) {
         if (hidden) hidden.value = val;
         if (dropdown) {
             const filtered = state.clients.filter(c => c.nome.toLowerCase().includes(val.toLowerCase()));
-            dropdown.innerHTML = filtered.map(c => `
-                <div onclick="window.selectClientModal('${c.nome.replace(/'/g, "\\'")}')" 
-                     class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
-                    <span class="font-bold text-slate-300 group-hover:text-white">${c.nome}</span>
-                </div>
-            `).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum cliente encontrado.</div>`;
+            dropdown.innerHTML = filtered.map(c => {
+                const planStats = window.getClientPlanUsage(c.nome);
+                const hasPlan = planStats !== null;
+
+                return `
+                    <div onclick="window.selectClientModal('${c.nome.replace(/'/g, "\\'")}')" 
+                         class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${c.nome}</span>
+                            <span class="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">${c.telefone || 'SEM TELEFONE...'}</span>
+                        </div>
+                        ${hasPlan ? `
+                            <div class="text-right">
+                                <span class="${planStats.usageCount >= planStats.limit ? 'text-rose-500' : 'text-emerald-500'} font-black text-[10px] block">
+                                    ${planStats.usageCount}/${planStats.limit}
+                                </span>
+                                <span class="text-[8px] text-slate-600 font-black uppercase tracking-tighter block">CORTES</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum cliente encontrado.</div>`;
             dropdown.classList.remove('hidden');
         }
     };
@@ -3915,24 +4080,108 @@ if (!window.hasGlobalHandlers) {
         if (usage && usage.isWithinLimit) {
             const form = document.querySelector('.glass-card form[onsubmit="window.saveNewRecord(event)"]');
             if (form) {
-                const serviceSelect = form.querySelector('select[name="service"]');
+                const serviceInput = form.querySelector('#serviceSearchInputModal');
+                const serviceHidden = form.querySelector('input[name="service"]');
                 const valueInput = form.querySelector('input[name="value"]');
                 const paymentSelect = form.querySelector('select[name="payment"]');
                 
-                if (serviceSelect) {
-                    const planServiceName = `${usage.nextVisit}º DIA`;
-                    if (!Array.from(serviceSelect.options).some(o => o.value === planServiceName)) {
-                        const opt = document.createElement('option');
-                        opt.value = planServiceName;
-                        opt.text = planServiceName;
-                        serviceSelect.add(opt);
-                    }
-                    serviceSelect.value = planServiceName;
-                }
+                const planServiceName = `${usage.nextVisit}º DIA`;
+                if (serviceInput) serviceInput.value = planServiceName;
+                if (serviceHidden) serviceHidden.value = planServiceName;
                 if (valueInput) valueInput.value = "0";
                 if (paymentSelect) paymentSelect.value = "PLANO MENSAL";
             }
         }
+    };
+
+    // --- Helpers de Busca de Procedimentos (Global/Manage) ---
+    window.openProcedureDropdown = () => {
+        const dropdown = document.getElementById('procedureDropdown');
+        const input = document.getElementById('serviceSearchInput');
+        if (dropdown && input) {
+            const val = input.value.toLowerCase();
+            const filtered = state.procedures.filter(p => p.nome.toLowerCase().includes(val));
+            dropdown.innerHTML = filtered.map(p => `
+                <div onclick="window.selectProcedure('${p.nome.replace(/'/g, "\\'")}', ${p.preco})" 
+                     class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
+                    <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${p.nome}</span>
+                    <span class="text-[10px] font-black text-amber-500/50 group-hover:text-amber-500">R$ ${p.preco.toFixed(2)}</span>
+                </div>
+            `).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum serviço encontrado.</div>`;
+            dropdown.classList.remove('hidden');
+        }
+    };
+
+    window.filterProcedures = (val) => {
+        const dropdown = document.getElementById('procedureDropdown');
+        const hidden = document.querySelector('input[name="service"]');
+        if (hidden) hidden.value = val;
+        if (dropdown) {
+            const filtered = state.procedures.filter(p => p.nome.toLowerCase().includes(val.toLowerCase()));
+            dropdown.innerHTML = filtered.map(p => `
+                <div onclick="window.selectProcedure('${p.nome.replace(/'/g, "\\'")}', ${p.preco})" 
+                     class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
+                    <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${p.nome}</span>
+                    <span class="text-[10px] font-black text-amber-500/50 group-hover:text-amber-500">R$ ${p.preco.toFixed(2)}</span>
+                </div>
+            `).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum serviço encontrado.</div>`;
+            dropdown.classList.remove('hidden');
+        }
+    };
+
+    window.selectProcedure = (name, price) => {
+        const input = document.getElementById('serviceSearchInput');
+        const hidden = document.querySelector('input[name="service"]');
+        const priceInput = document.querySelector('input[name="value"]');
+        if (input) input.value = name;
+        if (hidden) hidden.value = name;
+        if (priceInput && price) priceInput.value = price;
+        document.getElementById('procedureDropdown')?.classList.add('hidden');
+    };
+
+    // --- Helpers de Busca de Procedimentos (Modal) ---
+    window.openProcedureDropdownModal = () => {
+        const dropdown = document.getElementById('procedureDropdownModal');
+        const input = document.getElementById('serviceSearchInputModal');
+        if (dropdown && input) {
+            const val = input.value.toLowerCase();
+            const filtered = state.procedures.filter(p => p.nome.toLowerCase().includes(val));
+            dropdown.innerHTML = filtered.map(p => `
+                <div onclick="window.selectProcedureModal('${p.nome.replace(/'/g, "\\'")}', ${p.preco})" 
+                     class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
+                    <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${p.nome}</span>
+                    <span class="text-[10px] font-black text-amber-500/50 group-hover:text-amber-500">R$ ${p.preco.toFixed(2)}</span>
+                </div>
+            `).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum serviço encontrado.</div>`;
+            dropdown.classList.remove('hidden');
+        }
+    };
+
+    window.filterProceduresModal = (val) => {
+        const dropdown = document.getElementById('procedureDropdownModal');
+        const hidden = document.querySelector('#serviceSearchInputModal')?.parentElement?.querySelector('input[name="service"]');
+        if (hidden) hidden.value = val;
+        if (dropdown) {
+            const filtered = state.procedures.filter(p => p.nome.toLowerCase().includes(val.toLowerCase()));
+            dropdown.innerHTML = filtered.map(p => `
+                <div onclick="window.selectProcedureModal('${p.nome.replace(/'/g, "\\'")}', ${p.preco})" 
+                     class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
+                    <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${p.nome}</span>
+                    <span class="text-[10px] font-black text-amber-500/50 group-hover:text-amber-500">R$ ${p.preco.toFixed(2)}</span>
+                </div>
+            `).join('') || `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum serviço encontrado.</div>`;
+            dropdown.classList.remove('hidden');
+        }
+    };
+
+    window.selectProcedureModal = (name, price) => {
+        const input = document.getElementById('serviceSearchInputModal');
+        const hidden = document.querySelector('#serviceSearchInputModal')?.parentElement?.querySelector('input[name="service"]');
+        const priceInput = document.querySelector('.glass-card input[name="value"]');
+        if (input) input.value = name;
+        if (hidden) hidden.value = name;
+        if (priceInput && price) priceInput.value = price;
+        document.getElementById('procedureDropdownModal')?.classList.add('hidden');
     };
 
     window.updatePriceByService = (serviceName) => {
@@ -4021,8 +4270,6 @@ window.handleEnterSelection = (e, dropdownId) => {
         const time = el.dataset.time;
         const date = el.dataset.date;
 
-        // Resetar sinalizador de digitação
-        el.dataset.beganTyping = "false";
 
         // Se mudou data ou hora e for um registro novo, atualiza a "intenção" nos irmãos para o próximo campo
         if (id === 'new' && (field === 'time' || field === 'date')) {
@@ -4038,7 +4285,8 @@ window.handleEnterSelection = (e, dropdownId) => {
             service: 'procedimento',
             value: 'valor',
             payment: 'forma_pagamento',
-            time: 'horario'
+            time: 'horario',
+            date: 'data'
         };
 
         const dbField = fieldMap[field];
@@ -4154,19 +4402,6 @@ window.handleEnterSelection = (e, dropdownId) => {
             
             e.target.blur();
             return;
-        }
-
-        // Comportamento Excel: se for a primeira tecla, limpa o conteúdo.
-        if (!e.target.dataset.beganTyping || e.target.dataset.beganTyping === "false") {
-            const isPrintable = e.key.length === 1;
-            const isBackspace = e.key === 'Backspace';
-            
-            if (isPrintable || isBackspace) {
-                e.target.innerText = "";
-                e.target.dataset.beganTyping = "true";
-                // Se for backspace, apenas limpamos e paramos por aqui para não apagar o "nada" que sobrou
-                if (isBackspace) e.preventDefault();
-            }
         }
     };
 
@@ -4311,17 +4546,22 @@ window.handleEnterSelection = (e, dropdownId) => {
 
     window.setToBreak = (isModal = true) => {
         const suffix = isModal ? 'Modal' : '';
-        const input = document.getElementById(`clientSearchInput${suffix}`);
-        const hidden = document.querySelector(isModal ? '#clientSearchInputModal' : '#clientSearchInput')?.parentElement?.querySelector('input[name="client"]');
-        const service = document.querySelector(isModal ? '#clientDropdownModal' : '#clientDropdown')?.parentElement?.parentElement?.parentElement?.querySelector('select[name="service"]');
-        const value = document.querySelector(isModal ? '#clientDropdownModal' : '#clientDropdown')?.parentElement?.parentElement?.parentElement?.querySelector('input[name="value"]');
-        const payment = document.querySelector(isModal ? '#clientDropdownModal' : '#clientDropdown')?.parentElement?.parentElement?.parentElement?.querySelector('select[name="payment"]');
+        const clientInput = document.getElementById(`clientSearchInput${suffix}`);
+        const clientHidden = document.querySelector(isModal ? '#clientSearchInputModal' : '#clientSearchInput')?.parentElement?.querySelector('input[name="client"]');
+        
+        const serviceSearchInput = document.getElementById(`serviceSearchInput${suffix}`);
+        const serviceHidden = document.querySelector(isModal ? '#serviceSearchInputModal' : '#serviceSearchInput')?.parentElement?.querySelector('input[name="service"]');
+        
+        const form = clientInput.closest('form');
+        const valueInput = form?.querySelector('input[name="value"]');
+        const paymentSelect = form?.querySelector('select[name="payment"]');
 
-        if (input) input.value = 'PAUSA';
-        if (hidden) hidden.value = 'PAUSA';
-        if (service) service.value = 'BLOQUEADO';
-        if (value) value.value = '0';
-        if (payment) payment.value = 'CORTESIA';
+        if (clientInput) clientInput.value = 'PAUSA';
+        if (clientHidden) clientHidden.value = 'PAUSA';
+        if (serviceSearchInput) serviceSearchInput.value = 'BLOQUEADO';
+        if (serviceHidden) serviceHidden.value = 'BLOQUEADO';
+        if (valueInput) valueInput.value = '0';
+        if (paymentSelect) paymentSelect.value = 'CORTESIA';
     };
 
     // Click global para fechar dropdowns
@@ -4331,6 +4571,12 @@ window.handleEnterSelection = (e, dropdownId) => {
         }
         if (!e.target.closest('#clientSearchInputModal') && !e.target.closest('#clientDropdownModal')) {
             document.getElementById('clientDropdownModal')?.classList.add('hidden');
+        }
+        if (!e.target.closest('#serviceSearchInput') && !e.target.closest('#procedureDropdown')) {
+            document.getElementById('procedureDropdown')?.classList.add('hidden');
+        }
+        if (!e.target.closest('#serviceSearchInputModal') && !e.target.closest('#procedureDropdownModal')) {
+            document.getElementById('procedureDropdownModal')?.classList.add('hidden');
         }
         if (!e.target.closest('[id^="inlineAutocomplete_"]')) {
             document.querySelectorAll('[id^="inlineAutocomplete_"]').forEach(d => d.classList.add('hidden'));

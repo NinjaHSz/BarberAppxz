@@ -20,7 +20,6 @@ Este documento registra as diretrizes de design, funcionalidades e comportamento
 
 - Todas as células editáveis devem permitir edição rápida clicando diretamente nelas.
 - **Regra de Foco:** Ao clicar em uma célula ou focar nela, o texto deve ser selecionado automaticamente.
-- **Substituição Instantânea:** Se o usuário digitar qualquer caractere ou pressionar Backspace imediatamente após o foco, o valor antigo deve sumir completamente, deixando apenas o novo caractere ou o campo vazio.
 - **Autocomplete com Enter:** Se houver sugestões de autocomplete visíveis (clientes, procedimentos ou cartões), pressionar `Enter` deve selecionar automaticamente a primeira opção da lista.
 
 ### 3. Responsividade e UI
