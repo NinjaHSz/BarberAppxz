@@ -2401,6 +2401,44 @@ const ClientProfilePage = () => {
         }
     };
 
+    window.savePaymentInline = async (el) => {
+        const payId = el.getAttribute('data-id');
+        const field = el.getAttribute('data-field');
+        let value = el.tagName === 'SELECT' || el.tagName === 'INPUT' ? el.value : el.innerText;
+
+        if (field === 'valor') {
+            value = parseFloat(value.replace('R$', '').replace(',', '.').trim()) || 0;
+        }
+
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/pagamentos_planos?id=eq.${payId}`, {
+                method: 'PATCH',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({ [field]: value })
+            });
+
+            if (res.ok) {
+                const pay = state.paymentHistory.find(p => p.id == payId);
+                if (pay) {
+                    pay[field] = value;
+                    if (field === 'data_pagamento') {
+                        const sortedAsc = [...state.paymentHistory].sort((a, b) => new Date(a.data_pagamento) - new Date(b.data_pagamento));
+                        const firstPayment = sortedAsc[0].data_pagamento;
+                        if (client.plano_inicio !== firstPayment) {
+                            window.saveClientEdit('plano_inicio', firstPayment);
+                        }
+                    }
+                }
+                render();
+            }
+        } catch (err) { console.error('Erro ao salvar pagamento:', err); }
+    };
+
     window.deletePayment = async (e, paymentId) => {
         if(e) e.stopPropagation();
         
@@ -2604,14 +2642,58 @@ const ClientProfilePage = () => {
                                     ${state.paymentHistory.map(p => `
                                         <div class="px-8 py-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors group">
                                             <div class="flex items-center gap-6">
-                                                <div class="text-amber-500 font-black text-sm w-28">${new Date(p.data_pagamento + 'T00:00:00').toLocaleDateString('pt-BR')}</div>
-                                                <div>
-                                                    <p class="text-white font-bold text-sm uppercase">${p.tipo_plano} • <span class="text-amber-500">${p.forma_pagamento || '-'}</span></p>
-                                                    ${p.observacao ? `<p class="text-[10px] text-slate-500 font-medium mt-1">${p.observacao}</p>` : ''}
+                                                <!-- Data Pagamento -->
+                                                <input type="date" 
+                                                       data-id="${p.id}" data-field="data_pagamento"
+                                                       value="${p.data_pagamento}"
+                                                       onchange="window.savePaymentInline(this)"
+                                                       style="color-scheme: dark"
+                                                       class="bg-transparent border-none text-amber-500 font-black text-sm w-32 outline-none cursor-pointer hover:bg-white/5 rounded px-1 transition-all">
+                                                
+                                                <div class="flex flex-col">
+                                                    <div class="flex items-center gap-1.5">
+                                                        <!-- Tipo Plano -->
+                                                        <select onchange="window.savePaymentInline(this)" 
+                                                                data-id="${p.id}" data-field="tipo_plano"
+                                                                class="appearance-none bg-transparent border-none text-white font-bold text-sm uppercase outline-none cursor-pointer hover:bg-white/5 rounded px-1 transition-all">
+                                                            <option value="Mensal" ${p.tipo_plano === 'Mensal' ? 'selected' : ''} class="bg-dark-950">Mensal</option>
+                                                            <option value="Anual" ${p.tipo_plano === 'Anual' ? 'selected' : ''} class="bg-dark-950">Anual</option>
+                                                        </select>
+                                                        <span class="text-slate-600">•</span>
+                                                        <!-- Forma Pagamento -->
+                                                        <select onchange="window.savePaymentInline(this)" 
+                                                                data-id="${p.id}" data-field="forma_pagamento"
+                                                                class="appearance-none bg-transparent border-none text-amber-500 font-bold text-sm uppercase outline-none cursor-pointer hover:bg-white/5 rounded px-1 transition-all">
+                                                            ${['Pix', 'Dinheiro', 'Cartão de Crédito', 'Cartão de Débito'].map(f => `
+                                                                <option value="${f}" ${p.forma_pagamento === f ? 'selected' : ''} class="bg-dark-950">${f}</option>
+                                                            `).join('')}
+                                                        </select>
+                                                    </div>
+                                                    <!-- Observação -->
+                                                    <div contenteditable="true"
+                                                         data-id="${p.id}" data-field="observacao"
+                                                         onblur="window.savePaymentInline(this)"
+                                                         onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+                                                         class="text-[10px] text-slate-500 font-medium mt-1 outline-none hover:text-slate-300 transition-all truncate focus:whitespace-normal focus:break-words max-w-[200px] cursor-text"
+                                                         title="${p.observacao || ''}">
+                                                        ${p.observacao || 'Adicionar observação...'}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div class="flex items-center gap-4">
-                                                <div class="text-lg font-black text-emerald-400">R$ ${parseFloat(p.valor).toFixed(2)}</div>
+                                                <!-- Valor -->
+                                                <div class="flex items-center gap-1">
+                                                    <span class="text-xs font-black text-emerald-400">R$</span>
+                                                    <div contenteditable="true"
+                                                         data-id="${p.id}" data-field="valor"
+                                                         onfocus="window.selectAll(this)"
+                                                         onblur="window.savePaymentInline(this)"
+                                                         onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+                                                         class="text-lg font-black text-emerald-400 outline-none focus:bg-emerald-500/10 rounded px-1 transition-all">
+                                                        ${parseFloat(p.valor).toFixed(2)}
+                                                    </div>
+                                                </div>
+                                                
                                                 <button onclick="window.deletePayment(event, '${p.id}')" 
                                                         class="w-8 h-8 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center opacity-0 group-hover:opacity-100"
                                                         title="Excluir Pagamento">
