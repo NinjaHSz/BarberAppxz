@@ -3552,7 +3552,7 @@ const CardsPage = () => {
                                 data-field="nome"
                                 onblur="window.saveCardInline(this)"
                                 onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
-                                class="text-4xl font-black text-white uppercase outline-none px-1 rounded hover:bg-white/5 truncate">${c.nome}</h2>
+                                class="text-2xl font-black text-white uppercase outline-none px-1 rounded hover:bg-white/5">${c.nome}</h2>
                         </div>
 
                         <div class="grid grid-cols-1 xs:grid-cols-2 gap-3 relative z-10 border-t border-white/5 pt-4 mt-2">
