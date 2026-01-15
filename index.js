@@ -3177,11 +3177,11 @@ const ExpensesPage = () => {
                         if (e.paga) {
                             statusHtml = `<span class="text-emerald-500 font-bold text-[9px] uppercase">Pago</span>`;
                         } else if (diffDays < 0) {
-                            statusHtml = `<span class="text-rose-500 font-bold text-[9px] uppercase animate-pulse">Atrasado</span>`;
+                            statusHtml = `<span class="text-rose-500 font-bold text-[9px] uppercase animate-pulse">Vencido</span>`;
                         } else if (diffDays === 0) {
                             statusHtml = `<span class="text-amber-500 font-bold text-[9px] uppercase">Vence Hoje</span>`;
                         } else {
-                            statusHtml = `<span class="text-slate-500 font-bold text-[9px] uppercase">Faltam ${diffDays} dia(s)</span>`;
+                            statusHtml = `<span class="text-amber-500 font-bold text-[9px] uppercase">Pendente</span>`;
                         }
 
                         return `
@@ -3190,7 +3190,7 @@ const ExpensesPage = () => {
                             <div class="w-full md:w-auto flex items-center gap-3">
                                 <span class="md:hidden text-[9px] font-black text-slate-500 uppercase">Vencimento</span>
                                 <div class="flex items-center gap-1.5">
-                                    <div class="w-1.5 h-1.5 rounded-full ${e.paga ? 'bg-emerald-500' : diffDays < 0 ? 'bg-rose-500 animate-pulse' : diffDays === 0 ? 'bg-amber-500' : 'bg-slate-600'}"></div>
+                                    <div class="w-1.5 h-1.5 rounded-full ${e.paga ? 'bg-emerald-500' : diffDays < 0 ? 'bg-rose-500 animate-pulse' : 'bg-amber-500'}"></div>
                                     <div class="flex items-center -ml-1 gap-1">
                                         <i class="far fa-calendar-alt text-[9px] text-slate-500 mt-0.5"></i>
                                         <input type="date" 
@@ -3207,18 +3207,32 @@ const ExpensesPage = () => {
                             <!-- Cartão/Outro -->
                             <div class="w-full md:w-auto px-2 mt-2 md:mt-0 relative min-w-0">
                                 <span class="md:hidden text-[9px] font-black text-slate-500 uppercase block mb-1">Cartão/Outro</span>
-                                <div class="flex items-center gap-1">
-                                    <i class="fas fa-credit-card text-[9px] text-slate-500/50 mt-0.5"></i>
-                                    <div contenteditable="true" 
-                                         data-id="${e.id}" 
-                                         data-field="cartao"
-                                         onfocus="window.selectAll(this)"
-                                         onblur="window.saveExpenseInline(this)"
-                                         onkeydown="window.handleInlineKey(event)"
-                                         oninput="window.showExpenseAutocomplete(this)"
-                                         class="text-[10px] font-black text-amber-500 uppercase tracking-tight outline-none focus:bg-white/5 hover:bg-white/5 px-1 rounded transition-all truncate cursor-text w-full">
-                                        ${e.cartao || 'OUTROS'}
+                                <div class="flex flex-col gap-0.5">
+                                    <div class="flex items-center gap-1.5">
+                                        <i class="fas fa-credit-card text-[10px] text-slate-500/50"></i>
+                                        <div contenteditable="true" 
+                                             data-id="${e.id}" 
+                                             data-field="cartao"
+                                             onfocus="window.selectAll(this)"
+                                             onblur="window.saveExpenseInline(this)"
+                                             onkeydown="window.handleInlineKey(event)"
+                                             oninput="window.showExpenseAutocomplete(this)"
+                                             class="text-[10px] font-black text-amber-500 uppercase tracking-tight outline-none focus:bg-white/5 hover:bg-white/5 px-1 rounded transition-all truncate cursor-text">
+                                            ${e.cartao || 'OUTROS'}
+                                        </div>
                                     </div>
+                                    ${(() => {
+                                        const card = state.cards.find(c => c.nome === e.cartao);
+                                        if (card && card.titular) {
+                                            return `
+                                                <div class="flex items-center gap-1.5 ml-0.5 opacity-60">
+                                                    <i class="fas fa-user-circle text-[9px] text-slate-500/80"></i>
+                                                    <span class="text-[9px] font-bold text-slate-400 uppercase truncate">${card.titular}</span>
+                                                </div>
+                                            `;
+                                        }
+                                        return '';
+                                    })()}
                                 </div>
                                 <div id="expenseAutocomplete_${e.id}" class="hidden absolute left-0 right-0 top-full mt-1 bg-dark-800 border border-white/10 rounded-xl shadow-2xl z-50 p-1"></div>
                             </div>
@@ -3256,8 +3270,8 @@ const ExpensesPage = () => {
                                 <span class="md:hidden text-[9px] font-black text-slate-500 uppercase">Status</span>
                                 <select onchange="window.toggleExpenseStatus('${e.id}', this.value)" 
                                         class="bg-white/5 border border-white/10 text-[10px] font-black uppercase rounded-lg px-2 py-1 outline-none transition-all w-full
-                                        ${e.paga ? 'text-emerald-500' : diffDays < 0 ? 'text-rose-500' : diffDays === 0 ? 'text-amber-500' : 'text-slate-400'}">
-                                    <option value="PENDENTE" ${!e.paga ? 'selected' : ''}>PENDENTE</option>
+                                        ${e.paga ? 'text-emerald-500' : diffDays < 0 ? 'text-rose-500' : 'text-amber-500'}">
+                                    <option value="PENDENTE" ${!e.paga ? 'selected' : ''}>${diffDays < 0 ? 'VENCIDO' : 'PENDENTE'}</option>
                                     <option value="PAGO" ${e.paga ? 'selected' : ''}>PAGO</option>
                                 </select>
                             </div>
