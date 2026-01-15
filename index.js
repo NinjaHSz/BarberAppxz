@@ -3903,16 +3903,19 @@ if (!window.hasGlobalHandlers) {
     if (!cycleStartDate) return null;
 
     const visits = state.records.filter(r => {
-        const rClient = (r.client || '').trim().toLowerCase();
-        const cName = client.nome.trim().toLowerCase();
-        if (rClient !== cName) return false;
+        const clientNameInRecord = (r.client || r.cliente || '').trim().toLowerCase();
+        const targetClientName = client.nome.trim().toLowerCase();
+        if (clientNameInRecord !== targetClientName) return false;
         
-        // Comparação de string YYYY-MM-DD é segura
-        const isFromCycle = r.date >= cycleStartDate;
+        // Normalização de data para comparação segura
+        const rDate = r.date || r.data;
+        if (!rDate) return false;
         
-        // CRITÉRIO RESTRITO: Só conta se o procedimento for explicitamente "Xº DIA"
-        const planServicePattern = /\d+º\s*DIA/i;
-        const isPlanService = planServicePattern.test(r.service || '');
+        const isFromCycle = rDate >= cycleStartDate;
+        
+        // CRITÉRIO RESTRITO: Aceita símbolos ordinais variados ou nenhum símbolo
+        const planServicePattern = /\d+\s*[º°]?\s*DIA/i;
+        const isPlanService = planServicePattern.test(r.service || r.procedimento || '');
         
         return isFromCycle && isPlanService;
     }).length;
@@ -3940,7 +3943,7 @@ if (!window.hasGlobalHandlers) {
                 const hasPlan = planStats !== null;
                 
                 return `
-                    <div onclick="window.selectClient('${c.nome.replace(/'/g, "\\'")}')" 
+                    <div onmousedown="window.selectClient('${c.nome.replace(/'/g, "\\'")}')" 
                          class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                         <div class="flex flex-col">
                             <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${c.nome}</span>
@@ -3973,7 +3976,7 @@ if (!window.hasGlobalHandlers) {
                 const hasPlan = planStats !== null;
                 
                 return `
-                    <div onclick="window.selectClient('${c.nome.replace(/'/g, "\\'")}')" 
+                    <div onmousedown="window.selectClient('${c.nome.replace(/'/g, "\\'")}')" 
                          class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                         <div class="flex flex-col">
                             <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${c.nome}</span>
@@ -4033,7 +4036,7 @@ if (!window.hasGlobalHandlers) {
                 const hasPlan = planStats !== null;
                 
                 return `
-                    <div onclick="window.selectClientModal('${c.nome.replace(/'/g, "\\'")}')" 
+                    <div onmousedown="window.selectClientModal('${c.nome.replace(/'/g, "\\'")}')" 
                          class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                         <div class="flex flex-col">
                             <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${c.nome}</span>
@@ -4066,7 +4069,7 @@ if (!window.hasGlobalHandlers) {
                 const hasPlan = planStats !== null;
 
                 return `
-                    <div onclick="window.selectClientModal('${c.nome.replace(/'/g, "\\'")}')" 
+                    <div onmousedown="window.selectClientModal('${c.nome.replace(/'/g, "\\'")}')" 
                          class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                         <div class="flex flex-col">
                             <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${c.nome}</span>
@@ -4122,7 +4125,7 @@ if (!window.hasGlobalHandlers) {
             const val = input.value.toLowerCase();
             const filtered = state.procedures.filter(p => p.nome.toLowerCase().includes(val));
             dropdown.innerHTML = filtered.map(p => `
-                <div onclick="window.selectProcedure('${p.nome.replace(/'/g, "\\'")}', ${p.preco})" 
+                <div onmousedown="window.selectProcedure('${p.nome.replace(/'/g, "\\'")}', ${p.preco})" 
                      class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                     <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${p.nome}</span>
                     <span class="text-[10px] font-black text-amber-500/50 group-hover:text-amber-500">R$ ${p.preco.toFixed(2)}</span>
@@ -4139,7 +4142,7 @@ if (!window.hasGlobalHandlers) {
         if (dropdown) {
             const filtered = state.procedures.filter(p => p.nome.toLowerCase().includes(val.toLowerCase()));
             dropdown.innerHTML = filtered.map(p => `
-                <div onclick="window.selectProcedure('${p.nome.replace(/'/g, "\\'")}', ${p.preco})" 
+                <div onmousedown="window.selectProcedure('${p.nome.replace(/'/g, "\\'")}', ${p.preco})" 
                      class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                     <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${p.nome}</span>
                     <span class="text-[10px] font-black text-amber-500/50 group-hover:text-amber-500">R$ ${p.preco.toFixed(2)}</span>
@@ -4167,7 +4170,7 @@ if (!window.hasGlobalHandlers) {
             const val = input.value.toLowerCase();
             const filtered = state.procedures.filter(p => p.nome.toLowerCase().includes(val));
             dropdown.innerHTML = filtered.map(p => `
-                <div onclick="window.selectProcedureModal('${p.nome.replace(/'/g, "\\'")}', ${p.preco})" 
+                <div onmousedown="window.selectProcedureModal('${p.nome.replace(/'/g, "\\'")}', ${p.preco})" 
                      class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                     <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${p.nome}</span>
                     <span class="text-[10px] font-black text-amber-500/50 group-hover:text-amber-500">R$ ${p.preco.toFixed(2)}</span>
@@ -4184,7 +4187,7 @@ if (!window.hasGlobalHandlers) {
         if (dropdown) {
             const filtered = state.procedures.filter(p => p.nome.toLowerCase().includes(val.toLowerCase()));
             dropdown.innerHTML = filtered.map(p => `
-                <div onclick="window.selectProcedureModal('${p.nome.replace(/'/g, "\\'")}', ${p.preco})" 
+                <div onmousedown="window.selectProcedureModal('${p.nome.replace(/'/g, "\\'")}', ${p.preco})" 
                      class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                     <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${p.nome}</span>
                     <span class="text-[10px] font-black text-amber-500/50 group-hover:text-amber-500">R$ ${p.preco.toFixed(2)}</span>
@@ -4616,6 +4619,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applyTheme();
     fetchClients();
     fetchProcedures();
+    fetchAllPlanPayments(); // Carrega cache global de pagamentos para estatísticas e planos
     render();
     if (state.sheetUrl) {
         syncFromSheet(state.sheetUrl);

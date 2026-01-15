@@ -21,6 +21,7 @@ Este documento registra as diretrizes de design, funcionalidades e comportamento
 - Todas as células editáveis devem permitir edição rápida clicando diretamente nelas.
 - **Regra de Foco:** Ao clicar em uma célula ou focar nela, o texto deve ser selecionado automaticamente.
 - **Autocomplete com Enter:** Se houver sugestões de autocomplete visíveis (clientes, procedimentos ou cartões), pressionar `Enter` deve selecionar automaticamente a primeira opção da lista.
+- **Busca de Clientes e Serviços:** Implementado autocomplete nos campos de Cliente e Serviço (tanto na página principal quanto no modal de edição), com suporte a exibição de contagem de cortes para assinantes e preenchimento automático de valores para planos vigentes. Seleção otimizada via clique (`onmousedown`) para evitar fechamento prematuro do dropdown.
 
 ### 3. Responsividade e UI
 
