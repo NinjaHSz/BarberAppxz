@@ -1473,6 +1473,7 @@ const EditModal = () => {
                               "CARTÃO",
                               "PLANO MENSAL",
                               "PLANO SEMESTRAL",
+                              "PLANO ANUAL",
                               "CORTESIA",
                             ]
                               .map(
@@ -1710,6 +1711,7 @@ const RecordRow = (record) => {
                               "CARTÃO",
                               "PLANO MENSAL",
                               "PLANO SEMESTRAL",
+                              "PLANO ANUAL",
                               "CORTESIA",
                             ]
                               .map(
@@ -1890,6 +1892,7 @@ const ManagePage = () => {
                                   "CARTÃO",
                                   "PLANO MENSAL",
                                   "PLANO SEMESTRAL",
+                                  "PLANO ANUAL",
                                   "CORTESIA",
                                 ]
                                   .map(
@@ -3376,6 +3379,7 @@ const ClientProfilePage = () => {
                                                       "CARTÃO",
                                                       "PLANO MENSAL",
                                                       "PLANO SEMESTRAL",
+                                                      "PLANO ANUAL",
                                                       "CORTESIA",
                                                     ]
                                                       .map(
@@ -5344,7 +5348,13 @@ if (!window.hasGlobalHandlers) {
         if (serviceInput) serviceInput.value = planServiceName;
         if (serviceHidden) serviceHidden.value = planServiceName;
         if (valueInput) valueInput.value = "0";
-        if (paymentSelect) paymentSelect.value = "PLANO MENSAL";
+        if (paymentSelect) {
+           const client = state.clients.find(c => c.nome.toLowerCase() === name.toLowerCase());
+           let planPayment = "PLANO MENSAL";
+           if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
+           if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
+           paymentSelect.value = planPayment;
+        }
       }
     }
   };
@@ -5485,7 +5495,13 @@ if (!window.hasGlobalHandlers) {
         if (serviceInput) serviceInput.value = planServiceName;
         if (serviceHidden) serviceHidden.value = planServiceName;
         if (valueInput) valueInput.value = "0";
-        if (paymentSelect) paymentSelect.value = "PLANO MENSAL";
+        if (paymentSelect) {
+           const client = state.clients.find(c => c.nome.toLowerCase() === name.toLowerCase());
+           let planPayment = "PLANO MENSAL";
+           if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
+           if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
+           paymentSelect.value = planPayment;
+        }
       } else {
         // Sugestão de Renovação
         const client = state.clients.find(
@@ -5818,7 +5834,13 @@ if (!window.hasGlobalHandlers) {
 
       if (serviceEl) serviceEl.innerText = `${planUsage.nextVisit}º DIA`;
       if (valueEl) valueEl.innerText = "0.00";
-      if (paymentEl) paymentEl.value = "PLANO MENSAL";
+      if (paymentEl) {
+         const client = state.clients.find(c => c.nome.toLowerCase() === value.toLowerCase());
+         let planPayment = "PLANO MENSAL";
+         if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
+         if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
+         paymentEl.value = planPayment;
+      }
     }
 
     // Prevenir salvamentos múltiplos enquanto um está em andamento
@@ -6174,7 +6196,12 @@ if (!window.hasGlobalHandlers) {
           if (usage.isWithinLimit) {
             if (serviceEl) serviceEl.innerText = `${usage.nextVisit}º DIA`;
             if (valueEl) valueEl.innerText = "0.00";
-            if (paymentSelect) paymentSelect.value = "PLANO MENSAL";
+            if (paymentSelect) {
+               let planPayment = "PLANO MENSAL";
+               if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
+               if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
+               paymentSelect.value = planPayment;
+            }
           } else {
             // Atingiu o limite! Sugere Renovação
             if (serviceEl) serviceEl.innerText = `RENOVAÇÃO`;
@@ -6248,7 +6275,14 @@ if (!window.hasGlobalHandlers) {
             `[data-ui-id="${uiId}"][data-field="payment"]`
           );
           if (priceEl) priceEl.innerText = "0.00";
-          if (payEl) payEl.value = "PLANO MENSAL";
+          if (payEl) {
+             const clientName = document.querySelector(`[data-ui-id="${uiId}"][data-field="client"]`)?.innerText.trim();
+             const client = state.clients.find(c => c.nome.toLowerCase() === clientName?.toLowerCase());
+             let planPayment = "PLANO MENSAL";
+             if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
+             if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
+             payEl.value = planPayment;
+          }
           if (!isNew) {
             if (priceEl) window.saveInlineEdit(priceEl);
             if (payEl) window.saveInlineEdit(payEl);
