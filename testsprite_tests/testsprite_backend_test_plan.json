@@ -1,0 +1,32 @@
+[
+  {
+    "id": "TC001",
+    "title": "sync records from configured url",
+    "description": "Test the /sync GET endpoint to verify that it correctly synchronizes records from the provided URL parameter, ensuring data is fetched and merged without loss or duplication."
+  },
+  {
+    "id": "TC002",
+    "title": "fetch all clients",
+    "description": "Test the /rest/v1/clientes GET endpoint to ensure it returns the complete list of clients with accurate and up-to-date information."
+  },
+  {
+    "id": "TC003",
+    "title": "update client plan details",
+    "description": "Test the /rest/v1/clientes PATCH endpoint to verify that client subscription plan details can be updated correctly, including validation of input data and persistence of changes."
+  },
+  {
+    "id": "TC004",
+    "title": "fetch payment history for plans",
+    "description": "Test the /rest/v1/pagamentos_planos GET endpoint to ensure it returns accurate payment history records linked to client subscription plans."
+  },
+  {
+    "id": "TC005",
+    "title": "fetch all expenses",
+    "description": "Test the /rest/v1/saidas GET endpoint to verify it returns all expense records with correct details including payment status and installment information."
+  },
+  {
+    "id": "TC006",
+    "title": "fetch registered cards",
+    "description": "Test the /rest/v1/cartoes GET endpoint to ensure it returns all registered credit card details accurately, supporting financial tracking and management."
+  }
+]

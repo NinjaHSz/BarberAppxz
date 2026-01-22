@@ -1,0 +1,46 @@
+{
+  "tech_stack": [
+    "JavaScript (Vanilla)",
+    "HTML5",
+    "Tailwind CSS (CDN)",
+    "Supabase (REST API)",
+    "FontAwesome Icons"
+  ],
+  "features": [
+    {
+      "name": "Navigation Sidebar",
+      "description": "Sidebar for navigating between Dashboard, Records, Clients, Plans, and Expenses.",
+      "files": ["index.js"]
+    },
+    {
+      "name": "Dashboard View",
+      "description": "Main KPI screen showing Daily, Monthly, and Annual revenue cards.",
+      "files": ["index.js"]
+    },
+    {
+      "name": "Agendamentos (Records) Page",
+      "description": "Tabular view of all appointments with filtering by date.",
+      "files": ["index.js"]
+    },
+    {
+      "name": "Gestão (Clients) Page",
+      "description": "List of clients and procedures with search functionality.",
+      "files": ["index.js"]
+    },
+    {
+      "name": "Planos Management Page",
+      "description": "Interface for viewing and managing client subscription plans.",
+      "files": ["index.js"]
+    },
+    {
+      "name": "Financeiro (Expenses) Page",
+      "description": "Management of expenses and credit card details.",
+      "files": ["index.js"]
+    },
+    {
+      "name": "Theme Configuration",
+      "description": "Settings for accent colors and UI customization.",
+      "files": ["index.js"]
+    }
+  ]
+}

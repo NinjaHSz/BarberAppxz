@@ -67,6 +67,7 @@ const state = {
   expenseStatusFilter: "TODOS",
   expenseSort: "vencimento_asc",
   expensePeriodFilter: "mensal",
+  planSort: "nome_asc",
 };
 
 // ==========================================
@@ -81,7 +82,7 @@ function hexToRgb(hex) {
   return result
     ? `${parseInt(result[1], 16)} ${parseInt(result[2], 16)} ${parseInt(
         result[3],
-        16
+        16,
       )}`
     : "245 158 11";
 }
@@ -92,7 +93,7 @@ function hexToRgb(hex) {
 function applyTheme() {
   document.documentElement.style.setProperty(
     "--accent-rgb",
-    state.theme.accentRgb
+    state.theme.accentRgb,
   );
   localStorage.setItem("themeAccent", state.theme.accent);
   localStorage.setItem("themeAccentRgb", state.theme.accentRgb);
@@ -134,7 +135,7 @@ async function fetchClients() {
           apikey: SUPABASE_KEY,
           Authorization: "Bearer " + SUPABASE_KEY,
         },
-      }
+      },
     );
     if (res.ok) {
       state.clients = await res.json();
@@ -161,7 +162,7 @@ async function fetchProcedures() {
           apikey: SUPABASE_KEY,
           Authorization: "Bearer " + SUPABASE_KEY,
         },
-      }
+      },
     );
     if (res.ok) {
       state.procedures = await res.json();
@@ -184,7 +185,7 @@ async function fetchPaymentHistory(clientId) {
           apikey: SUPABASE_KEY,
           Authorization: "Bearer " + SUPABASE_KEY,
         },
-      }
+      },
     );
     if (res.ok) {
       state.paymentHistory = await res.json();
@@ -193,7 +194,7 @@ async function fetchPaymentHistory(clientId) {
       // Lógica: Sincronizar início do plano com o primeiro pagamento
       if (state.paymentHistory.length > 0) {
         const sortedAsc = [...state.paymentHistory].sort(
-          (a, b) => new Date(a.data_pagamento) - new Date(b.data_pagamento)
+          (a, b) => new Date(a.data_pagamento) - new Date(b.data_pagamento),
         );
         const firstPaymentDate = sortedAsc[0].data_pagamento;
 
@@ -235,7 +236,7 @@ async function fetchAllPlanPayments() {
           apikey: SUPABASE_KEY,
           Authorization: "Bearer " + SUPABASE_KEY,
         },
-      }
+      },
     );
     if (res.ok) {
       state.allPlanPayments = await res.json();
@@ -258,7 +259,7 @@ async function fetchExpenses() {
           apikey: SUPABASE_KEY,
           Authorization: "Bearer " + SUPABASE_KEY,
         },
-      }
+      },
     );
     if (res.ok) {
       state.expenses = await res.json();
@@ -281,7 +282,7 @@ async function fetchCards() {
           apikey: SUPABASE_KEY,
           Authorization: "Bearer " + SUPABASE_KEY,
         },
-      }
+      },
     );
     if (res.ok) {
       state.cards = await res.json();
@@ -295,7 +296,7 @@ async function fetchCards() {
 window.renewPlan = async (clientId) => {
   if (
     !confirm(
-      "Deseja renovar o ciclo do plano para hoje? Isso resetará a contagem de cortes/dias."
+      "Deseja renovar o ciclo do plano para hoje? Isso resetará a contagem de cortes/dias.",
     )
   )
     return;
@@ -325,13 +326,13 @@ async function syncFromSheet(url) {
               apikey: SUPABASE_KEY,
               Authorization: "Bearer " + SUPABASE_KEY,
             },
-          }
+          },
         );
 
         if (res.ok) {
           const data = await res.json();
           console.log(
-            `[Sync] Recebidos ${data.length} registros via Supabase.`
+            `[Sync] Recebidos ${data.length} registros via Supabase.`,
           );
 
           data.forEach((r) => {
@@ -370,10 +371,10 @@ async function syncFromSheet(url) {
             console.error(
               "[Sync] Erro do Script:",
               data.erro,
-              data.status_do_robo || ""
+              data.status_do_robo || "",
             );
             alert(
-              `Atenção: ${data.erro}. O robô não encontrou dados formatados na sua planilha.`
+              `Atenção: ${data.erro}. O robô não encontrou dados formatados na sua planilha.`,
             );
           }
           return false;
@@ -512,7 +513,7 @@ async function syncFromSheet(url) {
             if (rawVal) {
               if (rawVal.includes(",") && rawVal.includes(".")) {
                 cleanVal = parseFloat(
-                  rawVal.replace(/\./g, "").replace(",", ".")
+                  rawVal.replace(/\./g, "").replace(",", "."),
                 );
               } else if (rawVal.includes(",")) {
                 cleanVal = parseFloat(rawVal.replace(",", "."));
@@ -524,7 +525,7 @@ async function syncFromSheet(url) {
             const year = state.filters.year;
             const dateStr = `${year}-${String(monthIdx + 1).padStart(
               2,
-              "0"
+              "0",
             )}-${String(currentDay).padStart(2, "0")}`;
             const timeStr = (cols[mapping.time] || "00:00").substring(0, 5);
             const clientName = cols[mapping.client];
@@ -552,7 +553,7 @@ async function syncFromSheet(url) {
 
       // 1. Obter planilha principal para referência (Aba Ativa)
       const mainRes = await fetch(
-        `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`
+        `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`,
       );
       const mainText = mainRes.ok ? await mainRes.text() : "";
       const mainHash = mainText.trim().substring(0, 500);
@@ -561,7 +562,7 @@ async function syncFromSheet(url) {
       for (let i = 0; i < months.length; i++) {
         const name = months[i];
         const gvizUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(
-          name
+          name,
         )}`;
         try {
           const res = await fetch(gvizUrl);
@@ -590,13 +591,13 @@ async function syncFromSheet(url) {
 
     if (recordMap.size === 0) {
       console.log(
-        "[Sync] Aviso: Conexão estabelecida, mas nenhum dado encontrado."
+        "[Sync] Aviso: Conexão estabelecida, mas nenhum dado encontrado.",
       );
     }
 
     state.records = Array.from(recordMap.values()).sort(
       (a, b) =>
-        new Date(a.date + "T" + a.time) - new Date(b.date + "T" + b.time)
+        new Date(a.date + "T" + a.time) - new Date(b.date + "T" + b.time),
     );
     state.isIntegrated = true;
     state.sheetUrl = url;
@@ -670,8 +671,8 @@ function navigate(page, data = null) {
       data || "",
       `${state.filters.year}-${String(state.filters.month).padStart(
         2,
-        "0"
-      )}-${String(state.filters.day).padStart(2, "0")}`
+        "0",
+      )}-${String(state.filters.day).padStart(2, "0")}`,
     );
     return;
   }
@@ -742,8 +743,8 @@ const NavLink = (page, icon, label) => {
                     : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }">
             <i class="fas ${icon} w-6 text-lg ${
-    isActive ? "" : "group-hover:text-amber-500"
-  }"></i>
+              isActive ? "" : "group-hover:text-amber-500"
+            }"></i>
             <span class="ml-3 font-semibold">${label}</span>
         </button>
     `;
@@ -826,7 +827,7 @@ const Header = () => {
                         const dayDate = new Date(
                           state.filters.year,
                           state.filters.month - 1,
-                          d
+                          d,
                         );
                         const weekday = dayDate
                           .toLocaleDateString("pt-BR", { weekday: "short" })
@@ -846,7 +847,7 @@ const Header = () => {
                         (m, i) =>
                           `<option value="${i + 1}" ${
                             state.filters.month === i + 1 ? "selected" : ""
-                          }>${m.substring(0, 3).toUpperCase()}</option>`
+                          }>${m.substring(0, 3).toUpperCase()}</option>`,
                       )
                       .join("")}
                 </select>
@@ -911,7 +912,9 @@ const Dashboard = () => {
       profitRecords = state.records.filter(
         (r) =>
           r.date ===
-          (targetDay === 0 ? new Date().toISOString().split("T")[0] : dayPrefix)
+          (targetDay === 0
+            ? new Date().toISOString().split("T")[0]
+            : dayPrefix),
       );
       groupKeyFn = (r) => r.time.split(":")[0] + ":00";
     } else if (state.profitFilter === "semanal") {
@@ -921,7 +924,7 @@ const Dashboard = () => {
           : new Date(
               state.filters.year,
               state.filters.month - 1,
-              state.filters.day
+              state.filters.day,
             );
       const currentWeekDay = targetDate.getDay();
       const startOfWeek = new Date(targetDate);
@@ -933,7 +936,7 @@ const Dashboard = () => {
       const endStr = endOfWeek.toISOString().split("T")[0];
 
       profitRecords = state.records.filter(
-        (r) => r.date >= startStr && r.date <= endStr
+        (r) => r.date >= startStr && r.date <= endStr,
       );
       groupKeyFn = (r) => {
         const parts = r.date.split("-");
@@ -943,7 +946,7 @@ const Dashboard = () => {
       labelFn = (k) => wDays[parseInt(k)];
     } else if (state.profitFilter === "mensal") {
       profitRecords = state.records.filter((r) =>
-        r.date.startsWith(monthPrefix)
+        r.date.startsWith(monthPrefix),
       );
       groupKeyFn = (r) => r.date.split("-")[2];
       labelFn = (k) => `Dia ${k}`;
@@ -953,7 +956,7 @@ const Dashboard = () => {
       // Vamos cobrir 'anual' explicitamente e 'total' vira fallback ou removemos
       if (state.profitFilter === "anual") {
         profitRecords = state.records.filter((r) =>
-          r.date.startsWith(targetYear)
+          r.date.startsWith(targetYear),
         );
         groupKeyFn = (r) => r.date.split("-")[1];
         const monthNames = [
@@ -994,7 +997,7 @@ const Dashboard = () => {
             : new Date(
                 state.filters.year,
                 state.filters.month - 1,
-                state.filters.day
+                state.filters.day,
               );
         const currentWeekDay = targetDate.getDay();
         const startOfWeek = new Date(targetDate);
@@ -1101,17 +1104,17 @@ const Dashboard = () => {
                 ${KPICard(
                   "Faturamento do Dia",
                   state.kpis.diario,
-                  "fa-calendar-day"
+                  "fa-calendar-day",
                 )}
                 ${KPICard(
                   "Faturamento do Mês",
                   state.kpis.mensal,
-                  "fa-calendar-days"
+                  "fa-calendar-days",
                 )}
                 ${KPICard(
                   "Faturamento do Ano",
                   state.kpis.anual,
-                  "fa-calendar-check"
+                  "fa-calendar-check",
                 )}
             </div>
 
@@ -1133,7 +1136,7 @@ const Dashboard = () => {
                                         }">
                                     ${f}
                                 </button>
-                            `
+                            `,
                               )
                               .join("")}
                         </div>
@@ -1192,7 +1195,7 @@ const RecordsPage = () => {
     const h = Math.floor(currentMinutes / 60);
     const m = currentMinutes % 60;
     standardTimes.push(
-      `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+      `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
     );
     currentMinutes += 40; // Intervalo de 40 minutos
   }
@@ -1210,7 +1213,7 @@ const RecordsPage = () => {
             .includes(state.searchTerm.toLowerCase()) ||
           (r.service || "")
             .toLowerCase()
-            .includes(state.searchTerm.toLowerCase())
+            .includes(state.searchTerm.toLowerCase()),
       );
   } else {
     // Se for um dia específico, usamos a lógica de planilha
@@ -1225,11 +1228,11 @@ const RecordsPage = () => {
             .includes(state.searchTerm.toLowerCase()) ||
           (r.service || "")
             .toLowerCase()
-            .includes(state.searchTerm.toLowerCase())
+            .includes(state.searchTerm.toLowerCase()),
       );
     } else {
       const realAppointments = existingForDay.sort((a, b) =>
-        a.time.localeCompare(b.time)
+        a.time.localeCompare(b.time),
       );
       const dayStartMin = 7 * 60 + 20; // 07:20
       const dayEndMin = 22 * 60; // 22:00
@@ -1483,7 +1486,7 @@ const EditModal = () => {
                                     ? "selected"
                                     : ""
                                 }>${p}</option>
-                            `
+                            `,
                               )
                               .join("")}
                         </select>
@@ -1515,7 +1518,7 @@ window.viewProfileByName = (name) => {
   if (!name) return;
   // Tenta encontrar match exato ou parcial insensível a case
   const client = state.clients.find(
-    (c) => c.nome.trim().toLowerCase() === name.trim().toLowerCase()
+    (c) => c.nome.trim().toLowerCase() === name.trim().toLowerCase(),
   );
 
   if (client) {
@@ -1525,12 +1528,12 @@ window.viewProfileByName = (name) => {
     const similar = state.clients.find(
       (c) =>
         c.nome.toLowerCase().includes(name.toLowerCase()) ||
-        name.toLowerCase().includes(c.nome.toLowerCase())
+        name.toLowerCase().includes(c.nome.toLowerCase()),
     );
     if (similar) {
       if (
         confirm(
-          `Perfil exato não encontrado. Deseja ver o perfil de "${similar.nome}"?`
+          `Perfil exato não encontrado. Deseja ver o perfil de "${similar.nome}"?`,
         )
       ) {
         navigate("client-profile", similar.id);
@@ -1558,8 +1561,8 @@ const RecordRow = (record) => {
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Horário:</span>
                 <input type="time" id="edit_time_${rowId}"
                      data-id="${id}" data-ui-id="${rowId}" data-field="time" data-time="${
-    record.time
-  }" data-date="${record.date}"
+                       record.time
+                     }" data-date="${record.date}"
                      onblur="window.saveInlineEdit(this)"
                      onkeydown="window.handleInlineKey(event)"
                      onfocus="window.clearPlaceholder(this)"
@@ -1573,8 +1576,8 @@ const RecordRow = (record) => {
                     <div contenteditable="true" id="edit_client_${rowId}"
                          spellcheck="false"
                          data-id="${id}" data-ui-id="${rowId}" data-field="client" data-time="${
-    record.time
-  }" data-date="${record.date}"
+                           record.time
+                         }" data-date="${record.date}"
                          onblur="window.saveInlineEdit(this)"
                          onkeydown="window.handleInlineKey(event)"
                          oninput="window.showInlineAutocomplete(this)"
@@ -1586,8 +1589,8 @@ const RecordRow = (record) => {
                            isBreak
                              ? "text-slate-500 font-black"
                              : isEmpty
-                             ? "text-slate-400 uppercase"
-                             : "text-white uppercase"
+                               ? "text-slate-400 uppercase"
+                               : "text-white uppercase"
                          }">
                         ${
                           isBreak
@@ -1611,7 +1614,7 @@ const RecordRow = (record) => {
                     ? `
                     <button onclick="window.viewProfileByName('${record.client.replace(
                       /'/g,
-                      "\\'"
+                      "\\'",
                     )}')" 
                             class="hidden md:flex absolute -right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 text-amber-500/50 hover:text-amber-500 transition-all z-[10]"
                             title="Ver Perfil">
@@ -1629,8 +1632,8 @@ const RecordRow = (record) => {
                 <div contenteditable="true" id="edit_service_${rowId}"
                      spellcheck="false"
                      data-id="${id}" data-ui-id="${rowId}" data-field="service" data-time="${
-    record.time
-  }" data-date="${record.date}"
+                       record.time
+                     }" data-date="${record.date}"
                      onblur="window.saveInlineEdit(this)"
                      onkeydown="window.handleInlineKey(event)"
                      oninput="window.showInlineAutocomplete(this)"
@@ -1639,10 +1642,10 @@ const RecordRow = (record) => {
                        isBreak
                          ? "text-slate-600 italic"
                          : isEmpty
-                         ? "text-slate-500"
-                         : record.service === "A DEFINIR"
-                         ? "text-red-500 font-black animate-pulse"
-                         : "text-white font-medium"
+                           ? "text-slate-500"
+                           : record.service === "A DEFINIR"
+                             ? "text-red-500 font-black animate-pulse"
+                             : "text-white font-medium"
                      } uppercase">
                     ${isBreak ? "RESERVADO" : record.service}
                 </div>
@@ -1655,8 +1658,8 @@ const RecordRow = (record) => {
                 <div contenteditable="true" id="edit_obs_${rowId}"
                      spellcheck="false" autocomplete="off"
                      data-id="${id}" data-ui-id="${rowId}" data-field="observations" data-time="${
-    record.time
-  }" data-date="${record.date}"
+                       record.time
+                     }" data-date="${record.date}"
                      onblur="window.saveInlineEdit(this)"
                      onkeydown="window.handleInlineKey(event)"
                      onfocus="window.clearPlaceholder(this)"
@@ -1677,8 +1680,8 @@ const RecordRow = (record) => {
                 <div contenteditable="true" id="edit_value_${rowId}"
                      spellcheck="false" autocomplete="off"
                      data-id="${id}" data-ui-id="${rowId}" data-field="value" data-time="${
-    record.time
-  }" data-date="${record.date}"
+                       record.time
+                     }" data-date="${record.date}"
                      onblur="window.saveInlineEdit(this)"
                      onkeydown="window.handleInlineKey(event)"
                      onfocus="window.clearPlaceholder(this)"
@@ -1719,7 +1722,7 @@ const RecordRow = (record) => {
                                 <option value="${p}" ${
                                   record.paymentMethod === p ? "selected" : ""
                                 } class="bg-dark-900">${p}</option>
-                            `
+                            `,
                               )
                               .join("")}
                         </select>
@@ -1905,7 +1908,7 @@ const ManagePage = () => {
                                     }>${p}${
                                       p === "CARTÃO" ? " DE CRÉDITO/DÉBITO" : ""
                                     }</option>
-                                `
+                                `,
                                   )
                                   .join("")}
                             </select>
@@ -2015,7 +2018,7 @@ const ClientsPage = () => {
         else
           alert(
             "❌ Erro ao salvar: " +
-              (errorData.message || "Falha no banco de dados.")
+              (errorData.message || "Falha no banco de dados."),
           );
       }
     } catch (err) {
@@ -2041,7 +2044,7 @@ const ClientsPage = () => {
   window.deleteClient = async (id) => {
     if (
       !confirm(
-        "Deseja excluir este cliente? Isso não afetará os agendamentos já feitos."
+        "Deseja excluir este cliente? Isso não afetará os agendamentos já feitos.",
       )
     )
       return;
@@ -2391,8 +2394,8 @@ const ClientsPage = () => {
                                                 c.nome
                                                   .toLowerCase()
                                                   .includes(
-                                                    state.managementSearch.toLowerCase()
-                                                  )
+                                                    state.managementSearch.toLowerCase(),
+                                                  ),
                                               )
                                               .map(
                                                 (c) => `
@@ -2401,10 +2404,10 @@ const ClientsPage = () => {
                                                       c.id
                                                     }')">
                                                         ${c.nome} ${
-                                                  c.novo_cliente
-                                                    ? '<span class="ml-1 bg-amber-500/20 text-amber-500 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">Novo</span>'
-                                                    : ""
-                                                }
+                                                          c.novo_cliente
+                                                            ? '<span class="ml-1 bg-amber-500/20 text-amber-500 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">Novo</span>'
+                                                            : ""
+                                                        }
                                                     </td>
                                                     <td class="px-4 py-4 text-center">
                                                         <span class="px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest
@@ -2413,9 +2416,9 @@ const ClientsPage = () => {
                                                               "Mensal"
                                                                 ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
                                                                 : c.plano ===
-                                                                  "Anual"
-                                                                ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                                                                : "text-slate-500 border border-white/5"
+                                                                    "Anual"
+                                                                  ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                                                                  : "text-slate-500 border border-white/5"
                                                             }">
                                                             ${
                                                               c.plano ||
@@ -2431,21 +2434,21 @@ const ClientsPage = () => {
                                                              onblur="window.updateClientField('${
                                                                c.id
                                                              }', 'observacoes_cliente', this.innerText.trim())" onfocus="window.selectAll(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" class="bg-transparent text-[10px] text-slate-400 font-medium outline-none hover:text-white transition-colors whitespace-pre-wrap break-words min-w-[120px] max-w-[200px] cursor-text">${
-                                                  !c.observacoes_cliente ||
-                                                  c.observacoes_cliente.includes(
-                                                    "..."
-                                                  ) ||
-                                                  c.observacoes_cliente.includes(
-                                                    "permanentes"
-                                                  )
-                                                    ? "Adcionar Nota..."
-                                                    : c.observacoes_cliente
-                                                }</div>
+                                                               !c.observacoes_cliente ||
+                                                               c.observacoes_cliente.includes(
+                                                                 "...",
+                                                               ) ||
+                                                               c.observacoes_cliente.includes(
+                                                                 "permanentes",
+                                                               )
+                                                                 ? "Adcionar Nota..."
+                                                                 : c.observacoes_cliente
+                                                             }</div>
                                                     </td>
                                                     <td class="px-4 py-4 text-right">
                                                         <div class="flex justify-end space-x-1.5">
                                                             <button onclick='window.editClient(${JSON.stringify(
-                                                              c
+                                                              c,
                                                             )})' 
                                                                     class="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all transform active:scale-90 flex items-center justify-center">
                                                                 <i class="fas fa-edit text-xs"></i>
@@ -2459,7 +2462,7 @@ const ClientsPage = () => {
                                                         </div>
                                                     </td>
                                                 </tr>
-                                            `
+                                            `,
                                               )
                                               .join("")}
                                         </tbody>
@@ -2472,8 +2475,8 @@ const ClientsPage = () => {
                                         c.nome
                                           .toLowerCase()
                                           .includes(
-                                            state.managementSearch.toLowerCase()
-                                          )
+                                            state.managementSearch.toLowerCase(),
+                                          ),
                                       )
                                       .map(
                                         (c) => `
@@ -2488,7 +2491,7 @@ const ClientsPage = () => {
                                                 </div>
                                                 <div class="flex space-x-2">
                                                     <button onclick='window.editClient(${JSON.stringify(
-                                                      c
+                                                      c,
                                                     )})' class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center"><i class="fas fa-edit"></i></button>
                                                     <button onclick="window.deleteClient('${
                                                       c.id
@@ -2503,7 +2506,7 @@ const ClientsPage = () => {
                                                 }">${c.plano || "Nenhum"}</span>
                                             </div>
                                         </div>
-                                    `
+                                    `,
                                       )
                                       .join("")}
                                 </div>
@@ -2525,8 +2528,8 @@ const ClientsPage = () => {
                                                 p.nome
                                                   .toLowerCase()
                                                   .includes(
-                                                    state.managementSearch.toLowerCase()
-                                                  )
+                                                    state.managementSearch.toLowerCase(),
+                                                  ),
                                               )
                                               .map(
                                                 (p) => `
@@ -2540,7 +2543,7 @@ const ClientsPage = () => {
                                                     <td class="px-4 py-4 text-right">
                                                         <div class="flex justify-end space-x-1.5">
                                                             <button onclick='window.editProcedure(${JSON.stringify(
-                                                              p
+                                                              p,
                                                             )})' 
                                                                     class="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all transform active:scale-90 flex items-center justify-center">
                                                                 <i class="fas fa-edit text-xs"></i>
@@ -2554,7 +2557,7 @@ const ClientsPage = () => {
                                                         </div>
                                                     </td>
                                                 </tr>
-                                            `
+                                            `,
                                               )
                                               .join("")}
                                         </tbody>
@@ -2567,8 +2570,8 @@ const ClientsPage = () => {
                                         p.nome
                                           .toLowerCase()
                                           .includes(
-                                            state.managementSearch.toLowerCase()
-                                          )
+                                            state.managementSearch.toLowerCase(),
+                                          ),
                                       )
                                       .map(
                                         (p) => `
@@ -2583,14 +2586,14 @@ const ClientsPage = () => {
                                             </div>
                                             <div class="flex space-x-2">
                                                 <button onclick='window.editProcedure(${JSON.stringify(
-                                                  p
+                                                  p,
                                                 )})' class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center"><i class="fas fa-edit"></i></button>
                                                 <button onclick="window.deleteProcedure('${
                                                   p.id
                                                 }')" class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center"><i class="fas fa-trash-alt"></i></button>
                                             </div>
                                         </div>
-                                    `
+                                    `,
                                       )
                                       .join("")}
                                 </div>
@@ -2604,8 +2607,8 @@ const ClientsPage = () => {
                                 x.nome
                                   .toLowerCase()
                                   .includes(
-                                    state.managementSearch.toLowerCase()
-                                  )
+                                    state.managementSearch.toLowerCase(),
+                                  ),
                               ).length === 0
                                 ? '<div class="p-20 text-center text-slate-500 font-bold italic">Nenhum registro encontrado.</div>'
                                 : ""
@@ -2634,7 +2637,7 @@ window.updateClientPlan = async (clientId, data, skipRender = false) => {
           Prefer: "return=minimal",
         },
         body: JSON.stringify(payload),
-      }
+      },
     );
 
     if (res.ok) {
@@ -2664,7 +2667,7 @@ window.updateClientField = async (clientId, field, value) => {
           Prefer: "return=minimal",
         },
         body: JSON.stringify(payload),
-      }
+      },
     );
 
     if (res.ok) {
@@ -2705,15 +2708,19 @@ window.renewPlan = async (clientId) => {
 window.adjustLimitCortes = async (clientId, newValue) => {
   // Garante que o valor fique entre 1 e 99
   const clampedValue = Math.max(1, Math.min(99, parseInt(newValue) || 99));
-  
+
   // Atualiza o input visualmente antes de salvar (para UX fluida)
   const input = document.getElementById(`limit_input_${clientId}`);
   if (input) {
     input.value = clampedValue;
   }
-  
+
   // Salva no banco de dados sem re-renderizar para evitar perda de foco
-  await window.updateClientPlan(clientId, { limite_cortes: clampedValue }, true);
+  await window.updateClientPlan(
+    clientId,
+    { limite_cortes: clampedValue },
+    true,
+  );
 };
 
 /**
@@ -2733,6 +2740,15 @@ const PlansPage = () => {
     }, 50);
   };
 
+  window.togglePlanSort = (field) => {
+    if (state.planSort === `${field}_asc`) {
+      state.planSort = `${field}_desc`;
+    } else {
+      state.planSort = `${field}_asc`;
+    }
+    render();
+  };
+
   window.toggleAddPlanModal = (show) => {
     state.isAddPlanModalOpen = show;
     render();
@@ -2749,7 +2765,7 @@ const PlansPage = () => {
 
     const name = formData.get("nome");
     const existingClient = state.clients.find(
-      (c) => c.nome.toLowerCase() === name.trim().toLowerCase()
+      (c) => c.nome.toLowerCase() === name.trim().toLowerCase(),
     );
 
     const payload = {
@@ -2820,7 +2836,7 @@ const PlansPage = () => {
                  class="p-4 hover:bg-white/5 cursor-pointer transition-colors flex justify-between items-center group/item border-b border-white/5 last:border-0">
                 <span class="font-bold text-white text-sm group-hover/item:text-amber-500 transition-colors">${c.nome}</span>
             </div>
-        `
+        `,
       )
       .join("");
     list.classList.remove("hidden");
@@ -2837,7 +2853,23 @@ const PlansPage = () => {
   const clientsWithPlans = state.clients.filter(
     (c) => c.plano && c.plano !== "Nenhum"
   );
-  const filteredPlans = clientsWithPlans.filter((c) => {
+
+  // Lógica de Ordenação
+  const sortedPlans = [...clientsWithPlans].sort((a, b) => {
+    const field = state.planSort.split("_")[0];
+    const order = state.planSort.split("_")[1];
+
+    if (field === "nome") {
+      const valA = (a.nome || "").toLowerCase();
+      const valB = (b.nome || "").toLowerCase();
+      return order === "asc"
+        ? valA.localeCompare(valB)
+        : valB.localeCompare(valA);
+    }
+    return 0;
+  });
+
+  const filteredPlans = sortedPlans.filter((c) => {
     if (!state.planSearchTerm) return true;
     const search = state.planSearchTerm.toLowerCase();
     const name = (c.nome || "").toLowerCase();
@@ -2881,7 +2913,12 @@ const PlansPage = () => {
                 </div>
                 
                 <div class="hidden md:grid grid-cols-12 gap-4 px-8 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 bg-white/[0.01]">
-                    <div class="col-span-2 pl-2 text-left">Cliente</div>
+                    <div class="col-span-2 pl-2 text-left cursor-pointer hover:text-amber-500 transition-colors flex items-center gap-2" onclick="window.togglePlanSort('nome')">
+                        Cliente
+                        <i class="fas fa-sort-${
+                          state.planSort === "nome_asc" ? "alpha-down" : "alpha-up"
+                        } text-amber-500 text-xs"></i>
+                    </div>
                     <div class="col-span-2 text-left">Uso</div>
                     <div class="col-span-2 text-left">Últ. Pagto</div>
                     <div class="col-span-4 text-left">Observações</div>
@@ -2903,7 +2940,7 @@ const PlansPage = () => {
                             ${filteredPlans
                               .map((c) => {
                                 const planStats = window.getClientPlanUsage(
-                                  c.nome
+                                  c.nome,
                                 );
 
                                 return `
@@ -2930,7 +2967,7 @@ const PlansPage = () => {
                                     </div>
 
                                     <!-- Limite/Uso (Col 2) -->
-                                    <div class="md:col-span-2 flex justify-start">
+                                    <div class="md:col-span-2 flex flex-col justify-center gap-1">
                                         <div class="flex items-center gap-1.5 text-[11px] font-black tracking-tighter group/limit">
                                             <span class="${
                                               planStats?.usageCount >=
@@ -2938,8 +2975,8 @@ const PlansPage = () => {
                                                 ? "text-rose-500"
                                                 : "text-emerald-500"
                                             }">${
-                                  planStats?.usageCount || 0
-                                }</span>
+                                              planStats?.usageCount || 0
+                                            }</span>
                                             <span class="text-slate-600">/</span>
                                             <input type="number" value="${
                                               c.limite_cortes || 99
@@ -2949,6 +2986,7 @@ const PlansPage = () => {
                                                      c.id
                                                    }', { limite_cortes: parseInt(this.value) || 99 })"
                                                    class="w-6 bg-transparent border-none text-[11px] font-black p-0 outline-none text-white/60 focus:text-amber-500 hover:text-white transition-colors text-center cursor-pointer [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none">
+                                            
                                             <div class="flex flex-col gap-0.5 opacity-50 group-hover/limit:opacity-100 transition-opacity">
                                                 <button onclick="window.adjustLimitCortes('${c.id}', parseInt(document.getElementById('limit_input_${c.id}').value || 99) + 1)"
                                                         class="w-4 h-3 rounded-sm bg-white/5 text-slate-500 hover:bg-emerald-500/30 hover:text-emerald-400 active:scale-90 transition-all flex items-center justify-center text-[7px]">
@@ -2960,10 +2998,17 @@ const PlansPage = () => {
                                                 </button>
                                             </div>
                                         </div>
+                                        <!-- Barra de Progresso Visual -->
+                                        <div class="w-full h-1 bg-white/5 rounded-full overflow-hidden mt-1">
+                                            <div class="h-full ${
+                                              planStats?.usageCount >= (c.limite_cortes || 99) ? 'bg-rose-500' : 'bg-emerald-500'
+                                            } transition-all duration-500" 
+                                                 style="width: ${Math.min(100, ((planStats?.usageCount || 0) / (c.limite_cortes || 99)) * 100)}%"></div>
+                                        </div>
                                     </div>
 
                                     <!-- Pagamento (Col 2) -->
-                                    <div class="md:col-span-2 flex justify-start">
+                                    <div class="md:col-span-2 flex flex-col justify-start">
                                         <input type="date" value="${
                                           c.plano_pagamento || ""
                                         }" 
@@ -2971,7 +3016,14 @@ const PlansPage = () => {
                                                  c.id
                                                }', { plano_pagamento: this.value })"
                                                style="color-scheme: dark"
-                                               class="w-full bg-dark-900 border border-white/5 text-[10px] font-bold rounded-xl px-2 py-2 outline-none focus:border-amber-500/50 transition-all text-white cursor-pointer hover:bg-white/5 text-left">
+                                               class="w-full bg-dark-900 border ${
+                                                 c.plano_pagamento && (new Date() - new Date(c.plano_pagamento)) / (1000 * 60 * 60 * 24) > 30 
+                                                 ? 'border-rose-500/50' 
+                                                 : 'border-white/5'
+                                               } text-[10px] font-bold rounded-xl px-2 py-2 outline-none focus:border-amber-500/50 transition-all text-white cursor-pointer hover:bg-white/5 text-left">
+                                        ${c.plano_pagamento && (new Date() - new Date(c.plano_pagamento)) / (1000 * 60 * 60 * 24) > 30 
+                                           ? `<span class="text-[8px] text-rose-500 font-bold mt-1 uppercase tracking-tighter ml-1">Vencido</span>` 
+                                           : ""}
                                     </div>
                                     
                                      <!-- Observações (Col 4) -->
@@ -2983,11 +3035,13 @@ const PlansPage = () => {
                                              onblur="window.updateClientPlan('${
                                                c.id
                                              }', { observacoes_plano: this.innerText.trim() })" onfocus="window.selectAll(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" class="w-full bg-dark-900 border border-white/5 text-[10px] font-bold rounded-xl px-3 py-2.5 outline-none focus:border-amber-500/50 transition-all text-slate-400 focus:text-white whitespace-pre-wrap break-words cursor-text overflow-hidden text-left">${
-                                  !c.observacoes_plano ||
-                                  c.observacoes_plano.includes("...")
-                                    ? "Adcionar Nota..."
-                                    : c.observacoes_plano
-                                }</div>
+                                               !c.observacoes_plano ||
+                                               c.observacoes_plano.includes(
+                                                 "...",
+                                               )
+                                                 ? "Adicionar Nota..."
+                                                 : c.observacoes_plano
+                                             }</div>
                                     </div>
 
                                     <!-- Status (Col 1) -->
@@ -3140,7 +3194,7 @@ const ClientProfilePage = () => {
             Prefer: "return=minimal",
           },
           body: JSON.stringify(updateData),
-        }
+        },
       );
       if (res.ok) {
         // Se o nome mudou, atualiza todos os agendamentos antigos para o novo nome
@@ -3166,7 +3220,7 @@ const ClientProfilePage = () => {
   const clientRecords = state.records
     .filter(
       (r) =>
-        (r.client || "").toLowerCase() === (client.nome || "").toLowerCase()
+        (r.client || "").toLowerCase() === (client.nome || "").toLowerCase(),
     )
     .sort((a, b) => {
       const dateA = new Date(a.date + "T" + (a.time || "00:00"));
@@ -3181,7 +3235,7 @@ const ClientProfilePage = () => {
   // Calcula total investido baseando-se em todos os registros salvos (inclui as renovações pagas)
   const totalSpent = pastRecords.reduce(
     (acc, r) => acc + (parseFloat(r.value) || 0),
-    0
+    0,
   );
   const lastVisit = pastRecords.length > 0 ? pastRecords[0].date : "Nunca";
   const displayLastPaymentDate = client.plano_pagamento;
@@ -3221,7 +3275,7 @@ const ClientProfilePage = () => {
                                    !client.observacoes_cliente ||
                                    client.observacoes_cliente.includes("...") ||
                                    client.observacoes_cliente.includes(
-                                     "permanentes"
+                                     "permanentes",
                                    )
                                      ? "Adcionar Nota..."
                                      : client.observacoes_cliente
@@ -3281,7 +3335,7 @@ const ClientProfilePage = () => {
                         <h4 class="text-2xl font-black text-white">${
                           displayLastPaymentDate
                             ? new Date(
-                                displayLastPaymentDate + "T00:00:00"
+                                displayLastPaymentDate + "T00:00:00",
                               ).toLocaleDateString("pt-BR")
                             : "Não registrado"
                         }</h4>
@@ -3304,7 +3358,7 @@ const ClientProfilePage = () => {
                     <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Total Investido</p>
                     <h3 class="text-2xl md:text-3xl font-display font-black text-amber-500">R$ ${totalSpent.toLocaleString(
                       "pt-BR",
-                      { minimumFractionDigits: 2 }
+                      { minimumFractionDigits: 2 },
                     )}</h3>
                 </div>
                 <div class="bg-dark-900/50 p-6 rounded-[2rem] border border-white/5 shadow-xl">
@@ -3327,7 +3381,7 @@ const ClientProfilePage = () => {
                     <h3 class="text-2xl md:text-3xl font-display font-black text-white">${
                       lastVisit !== "Nunca"
                         ? new Date(lastVisit + "T00:00:00").toLocaleDateString(
-                            "pt-BR"
+                            "pt-BR",
                           )
                         : "Sem registros"
                     }</h3>
@@ -3390,7 +3444,7 @@ const ClientProfilePage = () => {
                                                        data-id="${id}" data-ui-id="${rowId}" data-field="time"
                                                        value="${r.time.substring(
                                                          0,
-                                                         5
+                                                         5,
                                                        )}"
                                                        onchange="window.saveInlineEdit(this)"
                                                        style="color-scheme: dark"
@@ -3415,7 +3469,7 @@ const ClientProfilePage = () => {
                                                             ? "selected"
                                                             : ""
                                                         } class="bg-dark-950">${p}</option>
-                                                     `
+                                                     `,
                                                       )
                                                       .join("")}
                                                 </select>
@@ -3506,7 +3560,7 @@ const CardProfilePage = () => {
     (e) =>
       e.cartao === card.nome ||
       (e.descricao &&
-        e.descricao.toUpperCase().includes(card.nome.toUpperCase()))
+        e.descricao.toUpperCase().includes(card.nome.toUpperCase())),
   );
 
   const periodFilter = state.expensePeriodFilter || "mensal";
@@ -3516,7 +3570,7 @@ const CardProfilePage = () => {
   const selectedDate = new Date(
     state.filters.year,
     state.filters.month - 1,
-    state.filters.day
+    state.filters.day,
   );
 
   let filteredCardExpenses = allCardExpenses;
@@ -3524,7 +3578,7 @@ const CardProfilePage = () => {
   if (periodFilter === "diario") {
     const dateStr = selectedDate.toISOString().split("T")[0];
     filteredCardExpenses = allCardExpenses.filter(
-      (e) => e.vencimento === dateStr
+      (e) => e.vencimento === dateStr,
     );
   } else if (periodFilter === "semanal") {
     const startOfWeek = new Date(selectedDate);
@@ -3538,13 +3592,13 @@ const CardProfilePage = () => {
     });
   } else if (periodFilter === "mensal") {
     filteredCardExpenses = allCardExpenses.filter((e) =>
-      e.vencimento.startsWith(monthPrefix)
+      e.vencimento.startsWith(monthPrefix),
     );
   }
 
   const totalSpentPeriod = filteredCardExpenses.reduce(
     (acc, e) => acc + (parseFloat(e.valor) || 0),
-    0
+    0,
   );
 
   window.saveCardEdit = async (field, value) => {
@@ -3566,7 +3620,7 @@ const CardProfilePage = () => {
             Prefer: "return=minimal", // Add this header
           },
           body: JSON.stringify(updateData),
-        }
+        },
       );
       if (res.ok) {
         fetchCards(); // Re-fetch to ensure state is fully consistent
@@ -3652,10 +3706,10 @@ const CardProfilePage = () => {
                               periodFilter === "diario"
                                 ? "Dia"
                                 : periodFilter === "semanal"
-                                ? "Período"
-                                : periodFilter === "mensal"
-                                ? "Mês"
-                                : "Total"
+                                  ? "Período"
+                                  : periodFilter === "mensal"
+                                    ? "Mês"
+                                    : "Total"
                             }
                         </p>
                         <div class="flex bg-dark-900 border border-white/5 rounded-xl p-0.5 shadow-inner self-end sm:self-auto overflow-x-auto max-w-full">
@@ -3673,20 +3727,20 @@ const CardProfilePage = () => {
                                       p === "diario"
                                         ? "Dia"
                                         : p === "semanal"
-                                        ? "Semana"
-                                        : p === "mensal"
-                                        ? "Mês"
-                                        : "Total"
+                                          ? "Semana"
+                                          : p === "mensal"
+                                            ? "Mês"
+                                            : "Total"
                                     }
                                 </button>
-                            `
+                            `,
                               )
                               .join("")}
                         </div>
                     </div>
                     <h4 class="text-2xl md:text-3xl font-black text-rose-500 mt-2">R$ ${totalSpentPeriod.toLocaleString(
                       "pt-BR",
-                      { minimumFractionDigits: 2 }
+                      { minimumFractionDigits: 2 },
                     )}</h4>
                 </div>
             </div>
@@ -3716,7 +3770,7 @@ const CardProfilePage = () => {
                                       e.descricao
                                     }</p>
                                     <p class="text-[9px] md:text-[10px] text-slate-500 font-bold">${new Date(
-                                      e.vencimento + "T12:00:00"
+                                      e.vencimento + "T12:00:00",
                                     ).toLocaleDateString("pt-BR")}</p>
                                 </div>
                                 <div class="text-right flex-shrink-0">
@@ -3725,10 +3779,10 @@ const CardProfilePage = () => {
                                         ? "text-emerald-500"
                                         : "text-rose-500"
                                     }">R$ ${(
-                                    parseFloat(e.valor) || 0
-                                  ).toLocaleString("pt-BR", {
-                                    minimumFractionDigits: 2,
-                                  })}</p>
+                                      parseFloat(e.valor) || 0
+                                    ).toLocaleString("pt-BR", {
+                                      minimumFractionDigits: 2,
+                                    })}</p>
                                     <span class="text-[8px] md:text-[9px] font-black uppercase tracking-widest ${
                                       e.paga
                                         ? "text-emerald-500/50"
@@ -3736,7 +3790,7 @@ const CardProfilePage = () => {
                                     }">${e.paga ? "PAGO" : "PENDENTE"}</span>
                                 </div>
                             </div>
-                        `
+                        `,
                                 )
                                 .join("")
                         }
@@ -3761,7 +3815,7 @@ const ExpensesPage = () => {
   const selectedDate = new Date(
     state.filters.year,
     state.filters.month - 1,
-    state.filters.day
+    state.filters.day,
   );
 
   if (periodFilter === "diario") {
@@ -3779,7 +3833,7 @@ const ExpensesPage = () => {
     });
   } else if (periodFilter === "mensal") {
     filteredExpenses = filteredExpenses.filter((e) =>
-      e.vencimento.startsWith(monthPrefix)
+      e.vencimento.startsWith(monthPrefix),
     );
   }
   // No caso de 'total', não aplica filtro de data
@@ -3789,7 +3843,7 @@ const ExpensesPage = () => {
     filteredExpenses = filteredExpenses.filter(
       (e) =>
         e.descricao.toLowerCase().includes(searchTerm) ||
-        (e.cartao && e.cartao.toLowerCase().includes(searchTerm))
+        (e.cartao && e.cartao.toLowerCase().includes(searchTerm)),
     );
   }
 
@@ -4008,16 +4062,16 @@ const ExpensesPage = () => {
                       periodFilter === "total"
                         ? "Totais"
                         : periodFilter === "diario"
-                        ? `${state.filters.day} de ${
-                            monthsLong[targetMonth - 1]
-                          }`
-                        : periodFilter === "semanal"
-                        ? "da Semana"
-                        : `${monthsLong[targetMonth - 1]}${
-                            targetYear !== new Date().getFullYear()
-                              ? " " + targetYear
-                              : ""
-                          }`
+                          ? `${state.filters.day} de ${
+                              monthsLong[targetMonth - 1]
+                            }`
+                          : periodFilter === "semanal"
+                            ? "da Semana"
+                            : `${monthsLong[targetMonth - 1]}${
+                                targetYear !== new Date().getFullYear()
+                                  ? " " + targetYear
+                                  : ""
+                              }`
                     }</span></h2>
                     <div class="flex items-center gap-2 mt-2">
                         <div class="flex bg-dark-900 border border-white/5 rounded-xl p-0.5">
@@ -4035,13 +4089,13 @@ const ExpensesPage = () => {
                                       p === "diario"
                                         ? "Dia"
                                         : p === "semanal"
-                                        ? "Semana"
-                                        : p === "mensal"
-                                        ? "Mês"
-                                        : "Total"
+                                          ? "Semana"
+                                          : p === "mensal"
+                                            ? "Mês"
+                                            : "Total"
                                     }
                                 </button>
-                            `
+                            `,
                               )
                               .join("")}
                         </div>
@@ -4053,14 +4107,14 @@ const ExpensesPage = () => {
                         <span class="text-[9px] font-black uppercase text-rose-500/60 tracking-tighter">Total Pago</span>
                         <span class="text-lg font-black text-rose-500">R$ ${totalPago.toLocaleString(
                           "pt-BR",
-                          { minimumFractionDigits: 2 }
+                          { minimumFractionDigits: 2 },
                         )}</span>
                     </div>
                     <div class="bg-amber-500/10 border border-amber-500/20 px-6 py-3 rounded-2xl flex flex-col justify-center">
                         <span class="text-[9px] font-black uppercase text-amber-500/60 tracking-tighter">Total a Pagar</span>
                         <span class="text-lg font-black text-amber-500">R$ ${totalAPagar.toLocaleString(
                           "pt-BR",
-                          { minimumFractionDigits: 2 }
+                          { minimumFractionDigits: 2 },
                         )}</span>
                     </div>
                     <button onclick="window.openExpenseModal()" class="bg-rose-500 text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-rose-600 transition-all shadow-xl shadow-rose-500/20 border border-rose-400/50 flex items-center gap-2">
@@ -4166,7 +4220,7 @@ const ExpensesPage = () => {
                               const diffDays = Math.ceil(
                                 (new Date(e.vencimento + "T00:00:00") -
                                   new Date(today + "T00:00:00")) /
-                                  (1000 * 60 * 60 * 24)
+                                  (1000 * 60 * 60 * 24),
                               );
 
                               let statusHtml = "";
@@ -4190,8 +4244,8 @@ const ExpensesPage = () => {
                                       e.paga
                                         ? "bg-emerald-500"
                                         : diffDays < 0
-                                        ? "bg-rose-500 animate-pulse"
-                                        : "bg-amber-500"
+                                          ? "bg-rose-500 animate-pulse"
+                                          : "bg-amber-500"
                                     }"></div>
                                     <div class="flex items-center -ml-1 gap-1">
                                         <i class="far fa-calendar-alt text-[9px] text-slate-500 mt-0.5"></i>
@@ -4225,7 +4279,7 @@ const ExpensesPage = () => {
                                     </div>
                                     ${(() => {
                                       const card = state.cards.find(
-                                        (c) => c.nome === e.cartao
+                                        (c) => c.nome === e.cartao,
                                       );
                                       if (card && card.titular) {
                                         return `
@@ -4269,7 +4323,7 @@ const ExpensesPage = () => {
                                      class="font-black text-[12px] text-white outline-none focus:bg-white/5 hover:bg-white/5 px-1 rounded transition-all cursor-text inline-block">
                                     ${(parseFloat(e.valor) || 0).toLocaleString(
                                       "pt-BR",
-                                      { minimumFractionDigits: 2 }
+                                      { minimumFractionDigits: 2 },
                                     )}
                                 </div>
                             </div>
@@ -4285,8 +4339,8 @@ const ExpensesPage = () => {
                                           e.paga
                                             ? "text-emerald-500"
                                             : diffDays < 0
-                                            ? "text-rose-500"
-                                            : "text-amber-500"
+                                              ? "text-rose-500"
+                                              : "text-amber-500"
                                         }">
                                     <option value="PAGO" ${
                                       e.paga ? "selected" : ""
@@ -4315,7 +4369,7 @@ const ExpensesPage = () => {
                             <!-- Ações -->
                             <div class="flex justify-center gap-2 mt-2 md:mt-0">
                                 <button onclick="window.openExpenseModal(${JSON.stringify(
-                                  e
+                                  e,
                                 ).replace(/"/g, "&quot;")})" 
                                         class="w-8 h-8 rounded-full bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-dark-950 transition-all flex items-center justify-center">
                                     <i class="fas fa-edit text-[10px]"></i>
@@ -4338,7 +4392,7 @@ const ExpensesPage = () => {
                         <span class="text-xs font-black uppercase tracking-widest text-slate-500">Total do Período</span>
                         <span class="text-xl font-black text-white">R$ ${totalGeral.toLocaleString(
                           "pt-BR",
-                          { minimumFractionDigits: 2 }
+                          { minimumFractionDigits: 2 },
                         )}</span>
                     </div>
                     `
@@ -4535,7 +4589,7 @@ const CardsPage = () => {
         else
           alert(
             "❌ Erro ao salvar: " +
-              (errorData.message || "Falha no banco de dados.")
+              (errorData.message || "Falha no banco de dados."),
           );
       }
     } catch (err) {
@@ -4654,10 +4708,10 @@ const CardsPage = () => {
                             </div>
                             <div class="flex space-x-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
                                 <button onclick="event.stopPropagation(); window.openCardModal(${JSON.stringify(
-                                  c
+                                  c,
                                 ).replace(
                                   /"/g,
-                                  "&quot;"
+                                  "&quot;",
                                 )})" class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-dark-950 transition-all flex items-center justify-center border border-amber-500/20">
                                     <i class="fas fa-edit text-xs"></i>
                                 </button>
@@ -4691,7 +4745,7 @@ const CardsPage = () => {
                                        style="color-scheme: dark"
                                        value="${
                                          String(c.fechamento || "").includes(
-                                           "-"
+                                           "-",
                                          )
                                            ? c.fechamento
                                            : ""
@@ -4707,7 +4761,7 @@ const CardsPage = () => {
                                        style="color-scheme: dark"
                                        value="${
                                          String(c.vencimento || "").includes(
-                                           "-"
+                                           "-",
                                          )
                                            ? c.vencimento
                                            : ""
@@ -4717,7 +4771,7 @@ const CardsPage = () => {
                             </div>
                         </div>
                     </div>
-                `
+                `,
                         )
                         .join("")
                 }
@@ -4769,7 +4823,7 @@ const CardsPage = () => {
                                            value="${
                                              String(
                                                state.editingCard?.fechamento ||
-                                                 ""
+                                                 "",
                                              ).includes("-")
                                                ? state.editingCard.fechamento
                                                : ""
@@ -4783,7 +4837,7 @@ const CardsPage = () => {
                                            value="${
                                              String(
                                                state.editingCard?.vencimento ||
-                                                 ""
+                                                 "",
                                              ).includes("-")
                                                ? state.editingCard.vencimento
                                                : ""
@@ -4833,7 +4887,7 @@ const SetupPage = () => {
       alert("Conectado com sucesso!");
     } else {
       alert(
-        "Não foi possível ler dados neste link. Verifique se o link está correto e público."
+        "Não foi possível ler dados neste link. Verifique se o link está correto e público.",
       );
     }
     render();
@@ -4842,7 +4896,7 @@ const SetupPage = () => {
   window.disconnectSheet = () => {
     if (
       confirm(
-        "Deseja realmente desconectar a planilha? Todos os dados locais serão limpos."
+        "Deseja realmente desconectar a planilha? Todos os dados locais serão limpos.",
       )
     ) {
       localStorage.removeItem("sheetUrl");
@@ -4938,7 +4992,7 @@ const SetupPage = () => {
                                                 : "border-transparent"
                                             }"
                                             style="background-color: ${color}"></button>
-                                `
+                                `,
                                   )
                                   .join("")}
                             </div>
@@ -5079,7 +5133,7 @@ function render() {
               if (textNode) {
                 range.setStart(
                   textNode,
-                  Math.min(selection.start, textNode.length)
+                  Math.min(selection.start, textNode.length),
                 );
                 range.collapse(true);
                 sel.removeAllRanges();
@@ -5154,7 +5208,7 @@ if (!window.hasGlobalHandlers) {
             apikey: SUPABASE_KEY,
             Authorization: "Bearer " + SUPABASE_KEY,
           },
-        }
+        },
       );
       if (res.ok) syncFromSheet(state.sheetUrl);
       else alert("Erro ao cancelar.");
@@ -5177,7 +5231,7 @@ if (!window.hasGlobalHandlers) {
     if (!clientName) return null;
     const client = state.clients.find(
       (c) =>
-        (c.nome || "").trim().toLowerCase() === clientName.trim().toLowerCase()
+        (c.nome || "").trim().toLowerCase() === clientName.trim().toLowerCase(),
     );
     if (!client || client.plano === "Nenhum" || client.plano === "Pausado")
       return null;
@@ -5190,7 +5244,7 @@ if (!window.hasGlobalHandlers) {
       .filter(
         (r) =>
           (r.client || "").toLowerCase() === clientName.toLowerCase() &&
-          /RENOVA[CÇ][AÃ]O/i.test(r.service || "")
+          /RENOVA[CÇ][AÃ]O/i.test(r.service || ""),
       )
       .sort((a, b) => {
         const dtA = (a.date || a.data) + "T" + (a.time || a.horario || "00:00");
@@ -5249,7 +5303,7 @@ if (!window.hasGlobalHandlers) {
     if (dropdown && input) {
       const val = input.value;
       const filtered = state.clients.filter((c) =>
-        c.nome.toLowerCase().includes(val.toLowerCase())
+        c.nome.toLowerCase().includes(val.toLowerCase()),
       );
       dropdown.innerHTML =
         filtered
@@ -5260,7 +5314,7 @@ if (!window.hasGlobalHandlers) {
             return `
                     <div onmousedown="window.selectClient('${c.nome.replace(
                       /'/g,
-                      "\\'"
+                      "\\'",
                     )}')" 
                          class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                         <div class="flex flex-col">
@@ -5303,7 +5357,7 @@ if (!window.hasGlobalHandlers) {
     if (hidden) hidden.value = val;
     if (dropdown) {
       const filtered = state.clients.filter((c) =>
-        c.nome.toLowerCase().includes(val.toLowerCase())
+        c.nome.toLowerCase().includes(val.toLowerCase()),
       );
       dropdown.innerHTML =
         filtered
@@ -5314,7 +5368,7 @@ if (!window.hasGlobalHandlers) {
             return `
                     <div onmousedown="window.selectClient('${c.nome.replace(
                       /'/g,
-                      "\\'"
+                      "\\'",
                     )}')" 
                          class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                         <div class="flex flex-col">
@@ -5362,7 +5416,7 @@ if (!window.hasGlobalHandlers) {
     const usage = window.getClientPlanUsage(name);
     if (usage && usage.isWithinLimit) {
       const form = document.querySelector(
-        'form[onsubmit="window.saveNewRecord(event)"]'
+        'form[onsubmit="window.saveNewRecord(event)"]',
       );
       if (form) {
         const serviceInput = form.querySelector("#serviceSearchInput");
@@ -5375,11 +5429,13 @@ if (!window.hasGlobalHandlers) {
         if (serviceHidden) serviceHidden.value = planServiceName;
         if (valueInput) valueInput.value = "0";
         if (paymentSelect) {
-           const client = state.clients.find(c => c.nome.toLowerCase() === name.toLowerCase());
-           let planPayment = "PLANO MENSAL";
-           if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
-           if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
-           paymentSelect.value = planPayment;
+          const client = state.clients.find(
+            (c) => c.nome.toLowerCase() === name.toLowerCase(),
+          );
+          let planPayment = "PLANO MENSAL";
+          if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
+          if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
+          paymentSelect.value = planPayment;
         }
       }
     }
@@ -5392,7 +5448,7 @@ if (!window.hasGlobalHandlers) {
     if (dropdown && input) {
       const val = input.value;
       const filtered = state.clients.filter((c) =>
-        c.nome.toLowerCase().includes(val.toLowerCase())
+        c.nome.toLowerCase().includes(val.toLowerCase()),
       );
       dropdown.innerHTML =
         filtered
@@ -5403,7 +5459,7 @@ if (!window.hasGlobalHandlers) {
             return `
                     <div onmousedown="window.selectClientModal('${c.nome.replace(
                       /'/g,
-                      "\\'"
+                      "\\'",
                     )}')" 
                          class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                         <div class="flex flex-col">
@@ -5448,7 +5504,7 @@ if (!window.hasGlobalHandlers) {
     if (hidden) hidden.value = val;
     if (dropdown) {
       const filtered = state.clients.filter((c) =>
-        c.nome.toLowerCase().includes(val.toLowerCase())
+        c.nome.toLowerCase().includes(val.toLowerCase()),
       );
       dropdown.innerHTML =
         filtered
@@ -5459,7 +5515,7 @@ if (!window.hasGlobalHandlers) {
             return `
                     <div onmousedown="window.selectClientModal('${c.nome.replace(
                       /'/g,
-                      "\\'"
+                      "\\'",
                     )}')" 
                          class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                         <div class="flex flex-col">
@@ -5508,7 +5564,7 @@ if (!window.hasGlobalHandlers) {
     // Auto-fill logic para Plano (Modal)
     const usage = window.getClientPlanUsage(name);
     const form = document.querySelector(
-      '.glass-card form[onsubmit="window.saveNewRecord(event)"]'
+      '.glass-card form[onsubmit="window.saveNewRecord(event)"]',
     );
     if (usage && form) {
       const serviceInput = form.querySelector("#serviceSearchInputModal");
@@ -5522,16 +5578,18 @@ if (!window.hasGlobalHandlers) {
         if (serviceHidden) serviceHidden.value = planServiceName;
         if (valueInput) valueInput.value = "0";
         if (paymentSelect) {
-           const client = state.clients.find(c => c.nome.toLowerCase() === name.toLowerCase());
-           let planPayment = "PLANO MENSAL";
-           if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
-           if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
-           paymentSelect.value = planPayment;
+          const client = state.clients.find(
+            (c) => c.nome.toLowerCase() === name.toLowerCase(),
+          );
+          let planPayment = "PLANO MENSAL";
+          if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
+          if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
+          paymentSelect.value = planPayment;
         }
       } else {
         // Sugestão de Renovação
         const client = state.clients.find(
-          (c) => c.nome.toLowerCase() === name.toLowerCase()
+          (c) => c.nome.toLowerCase() === name.toLowerCase(),
         );
         const renewalService = `RENOVAÇÃO`;
         if (serviceInput) serviceInput.value = renewalService;
@@ -5550,7 +5608,7 @@ if (!window.hasGlobalHandlers) {
     if (dropdown && input) {
       const val = input.value.toLowerCase();
       const filtered = state.procedures.filter((p) =>
-        p.nome.toLowerCase().includes(val)
+        p.nome.toLowerCase().includes(val),
       );
       dropdown.innerHTML =
         filtered
@@ -5558,17 +5616,17 @@ if (!window.hasGlobalHandlers) {
             (p) => `
                 <div onmousedown="window.selectProcedure('${p.nome.replace(
                   /'/g,
-                  "\\'"
+                  "\\'",
                 )}', ${p.preco})" 
                      class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                     <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${
                       p.nome
                     }</span>
                     <span class="text-[10px] font-black text-amber-500/50 group-hover:text-amber-500">R$ ${p.preco.toFixed(
-                      2
+                      2,
                     )}</span>
                 </div>
-            `
+            `,
           )
           .join("") ||
         `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum serviço encontrado.</div>`;
@@ -5582,7 +5640,7 @@ if (!window.hasGlobalHandlers) {
     if (hidden) hidden.value = val;
     if (dropdown) {
       const filtered = state.procedures.filter((p) =>
-        p.nome.toLowerCase().includes(val.toLowerCase())
+        p.nome.toLowerCase().includes(val.toLowerCase()),
       );
       dropdown.innerHTML =
         filtered
@@ -5590,17 +5648,17 @@ if (!window.hasGlobalHandlers) {
             (p) => `
                 <div onmousedown="window.selectProcedure('${p.nome.replace(
                   /'/g,
-                  "\\'"
+                  "\\'",
                 )}', ${p.preco})" 
                      class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                     <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${
                       p.nome
                     }</span>
                     <span class="text-[10px] font-black text-amber-500/50 group-hover:text-amber-500">R$ ${p.preco.toFixed(
-                      2
+                      2,
                     )}</span>
                 </div>
-            `
+            `,
           )
           .join("") ||
         `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum serviço encontrado.</div>`;
@@ -5625,7 +5683,7 @@ if (!window.hasGlobalHandlers) {
     if (dropdown && input) {
       const val = input.value.toLowerCase();
       const filtered = state.procedures.filter((p) =>
-        p.nome.toLowerCase().includes(val)
+        p.nome.toLowerCase().includes(val),
       );
       dropdown.innerHTML =
         filtered
@@ -5633,17 +5691,17 @@ if (!window.hasGlobalHandlers) {
             (p) => `
                 <div onmousedown="window.selectProcedureModal('${p.nome.replace(
                   /'/g,
-                  "\\'"
+                  "\\'",
                 )}', ${p.preco})" 
                      class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                     <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${
                       p.nome
                     }</span>
                     <span class="text-[10px] font-black text-amber-500/50 group-hover:text-amber-500">R$ ${p.preco.toFixed(
-                      2
+                      2,
                     )}</span>
                 </div>
-            `
+            `,
           )
           .join("") ||
         `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum serviço encontrado.</div>`;
@@ -5659,7 +5717,7 @@ if (!window.hasGlobalHandlers) {
     if (hidden) hidden.value = val;
     if (dropdown) {
       const filtered = state.procedures.filter((p) =>
-        p.nome.toLowerCase().includes(val.toLowerCase())
+        p.nome.toLowerCase().includes(val.toLowerCase()),
       );
       dropdown.innerHTML =
         filtered
@@ -5667,17 +5725,17 @@ if (!window.hasGlobalHandlers) {
             (p) => `
                 <div onmousedown="window.selectProcedureModal('${p.nome.replace(
                   /'/g,
-                  "\\'"
+                  "\\'",
                 )}', ${p.preco})" 
                      class="p-3 hover:bg-amber-500/10 rounded-xl cursor-pointer transition-all group flex justify-between items-center text-left">
                     <span class="font-bold text-slate-300 group-hover:text-white uppercase text-xs">${
                       p.nome
                     }</span>
                     <span class="text-[10px] font-black text-amber-500/50 group-hover:text-amber-500">R$ ${p.preco.toFixed(
-                      2
+                      2,
                     )}</span>
                 </div>
-            `
+            `,
           )
           .join("") ||
         `<div class="p-4 text-center text-slate-500 text-xs italic">Nenhum serviço encontrado.</div>`;
@@ -5691,7 +5749,7 @@ if (!window.hasGlobalHandlers) {
       .querySelector("#serviceSearchInputModal")
       ?.parentElement?.querySelector('input[name="service"]');
     const priceInput = document.querySelector(
-      '.glass-card input[name="value"]'
+      '.glass-card input[name="value"]',
     );
     if (input) input.value = name;
     if (hidden) hidden.value = name;
@@ -5849,23 +5907,25 @@ if (!window.hasGlobalHandlers) {
       field === "client" ? window.getClientPlanUsage(value) : null;
     if (planUsage && planUsage.isWithinLimit) {
       const serviceEl = document.querySelector(
-        `[data-ui-id="${uiId}"][data-field="service"]`
+        `[data-ui-id="${uiId}"][data-field="service"]`,
       );
       const valueEl = document.querySelector(
-        `[data-ui-id="${uiId}"][data-field="value"]`
+        `[data-ui-id="${uiId}"][data-field="value"]`,
       );
       const paymentEl = document.querySelector(
-        `[data-ui-id="${uiId}"][data-field="payment"]`
+        `[data-ui-id="${uiId}"][data-field="payment"]`,
       );
 
       if (serviceEl) serviceEl.innerText = `${planUsage.nextVisit}º DIA`;
       if (valueEl) valueEl.innerText = "0.00";
       if (paymentEl) {
-         const client = state.clients.find(c => c.nome.toLowerCase() === value.toLowerCase());
-         let planPayment = "PLANO MENSAL";
-         if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
-         if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
-         paymentEl.value = planPayment;
+        const client = state.clients.find(
+          (c) => c.nome.toLowerCase() === value.toLowerCase(),
+        );
+        let planPayment = "PLANO MENSAL";
+        if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
+        if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
+        paymentEl.value = planPayment;
       }
     }
 
@@ -5885,11 +5945,11 @@ if (!window.hasGlobalHandlers) {
             parseFloat(
               document
                 .querySelector(`[data-ui-id="${uiId}"][data-field="value"]`)
-                ?.innerText.trim()
+                ?.innerText.trim(),
             ) || 0;
           const paymentVal =
             document.querySelector(
-              `[data-ui-id="${uiId}"][data-field="payment"]`
+              `[data-ui-id="${uiId}"][data-field="payment"]`,
             )?.value || "PIX";
 
           const recordData = {
@@ -5902,13 +5962,13 @@ if (!window.hasGlobalHandlers) {
             observacoes:
               document
                 .querySelector(
-                  `[data-ui-id="${uiId}"][data-field="observations"]`
+                  `[data-ui-id="${uiId}"][data-field="observations"]`,
                 )
                 ?.innerText.trim() === "Nenhuma obs..."
                 ? ""
                 : document
                     .querySelector(
-                      `[data-ui-id="${uiId}"][data-field="observations"]`
+                      `[data-ui-id="${uiId}"][data-field="observations"]`,
                     )
                     ?.innerText.trim(),
           };
@@ -5936,7 +5996,7 @@ if (!window.hasGlobalHandlers) {
               // SE for Renovação, reseta o ciclo aqui também
               if (/RENOVA[CÇ][AÃ]O/i.test(serviceVal)) {
                 const client = state.clients.find(
-                  (c) => c.nome.toLowerCase() === value.toLowerCase()
+                  (c) => c.nome.toLowerCase() === value.toLowerCase(),
                 );
                 if (client) {
                   window.updateClientPlan(
@@ -5944,7 +6004,7 @@ if (!window.hasGlobalHandlers) {
                     {
                       plano_pagamento: date,
                     },
-                    true
+                    true,
                   );
                 }
               }
@@ -5965,7 +6025,7 @@ if (!window.hasGlobalHandlers) {
               .querySelector(`[data-ui-id="${uiId}"][data-field="client"]`)
               ?.innerText.trim();
             const client = state.clients.find(
-              (c) => c.nome.toLowerCase() === clientName?.toLowerCase()
+              (c) => c.nome.toLowerCase() === clientName?.toLowerCase(),
             );
             if (client) {
               recordData.forma_pagamento = "PIX";
@@ -5973,10 +6033,10 @@ if (!window.hasGlobalHandlers) {
 
               // Feedback visual imediato na UI
               const priceEl = document.querySelector(
-                `[data-ui-id="${uiId}"][data-field="value"]`
+                `[data-ui-id="${uiId}"][data-field="value"]`,
               );
               const payEl = document.querySelector(
-                `[data-ui-id="${uiId}"][data-field="payment"]`
+                `[data-ui-id="${uiId}"][data-field="payment"]`,
               );
               if (priceEl)
                 priceEl.innerText = parseFloat(client.valor_plano).toFixed(2);
@@ -5988,7 +6048,7 @@ if (!window.hasGlobalHandlers) {
                 {
                   plano_pagamento: date,
                 },
-                true
+                true,
               );
             }
           } else if (/\d+º\s*DIA/i.test(value)) {
@@ -6007,7 +6067,7 @@ if (!window.hasGlobalHandlers) {
               Prefer: "return=representation",
             },
             body: JSON.stringify(recordData),
-          }
+          },
         );
         if (res.ok) {
           const rec = state.records.find((r) => String(r.id) === String(id));
@@ -6089,14 +6149,14 @@ if (!window.hasGlobalHandlers) {
         (match) => `
             <div class="px-3 py-2 hover:bg-amber-500 hover:text-dark-950 cursor-pointer rounded-lg transition-colors font-bold uppercase truncate text-[11px]"
                  onmousedown="window.selectExpenseData('${id}', '${
-          match.nome
-        }', ${isModal}, '${type}')">
+                   match.nome
+                 }', ${isModal}, '${type}')">
                 <i class="fas ${
                   type === "card" ? "fa-credit-card" : "fa-tag"
                 } mr-2 text-[10px] text-amber-500/50"></i>
                 ${match.nome}
             </div>
-        `
+        `,
       )
       .join("");
     dropdown.classList.remove("hidden");
@@ -6106,14 +6166,14 @@ if (!window.hasGlobalHandlers) {
     if (isModal) {
       const fieldName = type === "card" ? "cartao" : "descricao";
       const el = document.querySelector(
-        `#expenseModal input[name="${fieldName}"]`
+        `#expenseModal input[name="${fieldName}"]`,
       );
       if (el) el.value = value.toUpperCase();
       const dropdown = document.getElementById(`expenseAutocomplete_${id}`);
       if (dropdown) dropdown.classList.add("hidden");
     } else {
       const el = document.querySelector(
-        `[data-field="cartao"][data-id="${id}"]`
+        `[data-field="cartao"][data-id="${id}"]`,
       );
       if (el) {
         el.innerText = value.toUpperCase();
@@ -6146,7 +6206,7 @@ if (!window.hasGlobalHandlers) {
 
     const val = el.innerText.trim().toLowerCase();
     const dropdown = document.getElementById(
-      `inlineAutocomplete_${field}_${uiId}`
+      `inlineAutocomplete_${field}_${uiId}`,
     );
     if (!dropdown) return;
 
@@ -6183,7 +6243,7 @@ if (!window.hasGlobalHandlers) {
                 } mr-2 text-[10px]"></i>
                 ${name}
             </div>
-        `
+        `,
       )
       .join("");
     dropdown.classList.remove("hidden");
@@ -6191,7 +6251,7 @@ if (!window.hasGlobalHandlers) {
 
   window.selectInlineData = (dropdownEl, uiId, field, value) => {
     const el = document.querySelector(
-      `[data-ui-id="${uiId}"][data-field="${field}"]`
+      `[data-ui-id="${uiId}"][data-field="${field}"]`,
     );
     if (el) {
       el.innerText = value;
@@ -6204,16 +6264,16 @@ if (!window.hasGlobalHandlers) {
         const usage = window.getClientPlanUsage(value);
         if (usage) {
           const client = state.clients.find(
-            (c) => c.nome.toLowerCase() === value.toLowerCase()
+            (c) => c.nome.toLowerCase() === value.toLowerCase(),
           );
           const serviceEl = document.querySelector(
-            `[data-ui-id="${uiId}"][data-field="service"]`
+            `[data-ui-id="${uiId}"][data-field="service"]`,
           );
           const valueEl = document.querySelector(
-            `[data-ui-id="${uiId}"][data-field="value"]`
+            `[data-ui-id="${uiId}"][data-field="value"]`,
           );
           const paymentSelect = document.querySelector(
-            `[data-ui-id="${uiId}"][data-field="payment"]`
+            `[data-ui-id="${uiId}"][data-field="payment"]`,
           );
           const dateVal =
             document.querySelector(`[data-ui-id="${uiId}"][data-field="time"]`)
@@ -6223,10 +6283,11 @@ if (!window.hasGlobalHandlers) {
             if (serviceEl) serviceEl.innerText = `${usage.nextVisit}º DIA`;
             if (valueEl) valueEl.innerText = "0.00";
             if (paymentSelect) {
-               let planPayment = "PLANO MENSAL";
-               if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
-               if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
-               paymentSelect.value = planPayment;
+              let planPayment = "PLANO MENSAL";
+              if (client?.plano === "Semestral")
+                planPayment = "PLANO SEMESTRAL";
+              if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
+              paymentSelect.value = planPayment;
             }
           } else {
             // Atingiu o limite! Sugere Renovação
@@ -6242,7 +6303,7 @@ if (!window.hasGlobalHandlers) {
                 {
                   plano_pagamento: dateVal,
                 },
-                true
+                true,
               ); // true = skipRender
             }
           }
@@ -6262,15 +6323,15 @@ if (!window.hasGlobalHandlers) {
             .querySelector(`[data-ui-id="${uiId}"][data-field="client"]`)
             ?.innerText.trim();
           const client = state.clients.find(
-            (c) => c.nome.toLowerCase() === clientName?.toLowerCase()
+            (c) => c.nome.toLowerCase() === clientName?.toLowerCase(),
           );
 
           if (client) {
             const priceEl = document.querySelector(
-              `[data-ui-id="${uiId}"][data-field="value"]`
+              `[data-ui-id="${uiId}"][data-field="value"]`,
             );
             const payEl = document.querySelector(
-              `[data-ui-id="${uiId}"][data-field="payment"]`
+              `[data-ui-id="${uiId}"][data-field="payment"]`,
             );
 
             if (priceEl && client.valor_plano)
@@ -6280,7 +6341,7 @@ if (!window.hasGlobalHandlers) {
             // Atualiza as datas do cliente para resetar o ciclo
             const dateVal =
               document.querySelector(
-                `[data-ui-id="${uiId}"][data-field="time"]`
+                `[data-ui-id="${uiId}"][data-field="time"]`,
               )?.dataset.date || new Date().toISOString().split("T")[0];
             if (dateVal) {
               window.updateClientPlan(client.id, {
@@ -6295,19 +6356,23 @@ if (!window.hasGlobalHandlers) {
           }
         } else if (/\d+º\s*DIA/i.test(value)) {
           const priceEl = document.querySelector(
-            `[data-ui-id="${uiId}"][data-field="value"]`
+            `[data-ui-id="${uiId}"][data-field="value"]`,
           );
           const payEl = document.querySelector(
-            `[data-ui-id="${uiId}"][data-field="payment"]`
+            `[data-ui-id="${uiId}"][data-field="payment"]`,
           );
           if (priceEl) priceEl.innerText = "0.00";
           if (payEl) {
-             const clientName = document.querySelector(`[data-ui-id="${uiId}"][data-field="client"]`)?.innerText.trim();
-             const client = state.clients.find(c => c.nome.toLowerCase() === clientName?.toLowerCase());
-             let planPayment = "PLANO MENSAL";
-             if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
-             if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
-             payEl.value = planPayment;
+            const clientName = document
+              .querySelector(`[data-ui-id="${uiId}"][data-field="client"]`)
+              ?.innerText.trim();
+            const client = state.clients.find(
+              (c) => c.nome.toLowerCase() === clientName?.toLowerCase(),
+            );
+            let planPayment = "PLANO MENSAL";
+            if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
+            if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
+            payEl.value = planPayment;
           }
           if (!isNew) {
             if (priceEl) window.saveInlineEdit(priceEl);
@@ -6317,7 +6382,7 @@ if (!window.hasGlobalHandlers) {
           const proc = state.procedures.find((p) => p.nome === value);
           if (proc) {
             const priceEl = document.querySelector(
-              `[data-ui-id="${uiId}"][data-field="value"]`
+              `[data-ui-id="${uiId}"][data-field="value"]`,
             );
             if (priceEl) {
               priceEl.innerText = proc.preco.toFixed(2);
@@ -6350,11 +6415,11 @@ if (!window.hasGlobalHandlers) {
       ?.parentElement?.querySelector('input[name="client"]');
 
     const serviceSearchInput = document.getElementById(
-      `serviceSearchInput${suffix}`
+      `serviceSearchInput${suffix}`,
     );
     const serviceHidden = document
       .querySelector(
-        isModal ? "#serviceSearchInputModal" : "#serviceSearchInput"
+        isModal ? "#serviceSearchInputModal" : "#serviceSearchInput",
       )
       ?.parentElement?.querySelector('input[name="service"]');
 

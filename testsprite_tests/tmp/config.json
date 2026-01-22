@@ -1,0 +1,16 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:5555/c:\\\\Users\\\\jluca\\\\Downloads\\\\My Apps\\\\BarberApp",
+  "executionArgs": {
+    "projectName": "BarberApp",
+    "projectPath": "c:\\Users\\jluca\\Downloads\\My Apps\\BarberApp",
+    "testIds": [],
+    "additionalInstruction": "Execute apenas testes de navegação e visualização de dados. Não preencha formulários de criação, não clique em botões de salvar, cancelar ou excluir. O objetivo é validar que a interface carrega os dados do Supabase e permite navegar entre as abas sem modificar nada.",
+    "envs": {
+      "API_KEY": "sk-user-Lvaxw1xuI_-hiTiFMjSV6vjqhRluW8sYwR7uIebysFml8P3YspzLp5FvKaV6U7k0Sql-zrIVQoQPgJcgx1ikAXSZET9_9MkWBQR8p4UkzMzQ82jLcENL-4NfGAlKuayy6GA"
+    }
+  },
+  "proxy": "http://499e8444-8770-4fe7-ba8a-ea0296c2fdb2:YdzrYAP48TW9EedAAjHyF78TRlbu84hY@tun.testsprite.com:8080"
+}

@@ -1,0 +1,99 @@
+[
+  {
+    "id": "TC001",
+    "title": "Dashboard - Visualização de KPIs",
+    "description": "Verificar se o dashboard carrega e exibe os cards de faturamento Diário, Mensal e Anual sem erros visuais.",
+    "category": "visual",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Abrir a aplicação na página inicial (Dashboard)"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirmar que os textos 'Faturamento Diário', 'Faturamento Mensal' e 'Faturamento Anual' estão visíveis"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Navegação - Menu Lateral",
+    "description": "Validar se a navegação entre as diferentes seções do app funciona corretamente através do menu lateral.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Clicar em 'Agendamentos' no menu lateral"
+      },
+      {
+        "type": "assertion",
+        "description": "Verificar se a tabela de agendamentos é exibida"
+      },
+      {
+        "type": "action",
+        "description": "Clicar em 'Gestão' no menu lateral"
+      },
+      {
+        "type": "assertion",
+        "description": "Verificar se a lista de clientes/procedimentos é carregada"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Busca de Clientes - Filtro Visual",
+    "description": "Testar o campo de busca na página de Gestão para garantir que a filtragem visual ocorre sem alterar dados.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navegar para a página 'Gestão'"
+      },
+      {
+        "type": "action",
+        "description": "Digitar um nome parcial no campo de busca de clientes"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirmar que a lista de clientes foi filtrada visualmente para mostrar apenas resultados correspondentes"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Página de Planos - Visualização",
+    "description": "Garantir que a página de planos exibe as informações dos assinantes corretamente.",
+    "category": "visual",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navegar para a página 'Planos'"
+      },
+      {
+        "type": "assertion",
+        "description": "Verificar se os títulos das colunas (Cliente, Plano, Status, etc) estão presentes"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Verificação de Temas",
+    "description": "Verificar se as cores de destaque (accent) são aplicadas corretamente na interface.",
+    "category": "visual",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Observar as cores dos botões ativos e ícones do menu lateral"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirmar que a cor #F59E0B (amber-500) é a cor predominante de destaque"
+      }
+    ]
+  }
+]
