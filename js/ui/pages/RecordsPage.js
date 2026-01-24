@@ -142,14 +142,14 @@ export const RecordsPage = () => {
             </div>
 
             <div class="space-y-4 md:space-y-0 md:bg-dark-900/30 md:rounded-[2rem] border border-white/5">
-                <div class="hidden md:flex bg-white/[0.02] border-b border-white/5 px-8 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                    <div class="w-16 text-left">Horário</div>
-                    <div class="flex-1 text-left px-4">Cliente</div>
-                    <div class="flex-1 text-left px-4">Procedimentos</div>
-                    <div class="flex-1 text-left px-4">Observações</div>
-                    <div class="w-24 text-left">Valor</div>
-                    <div class="w-28 text-left">Pagamento</div>
-                    <div class="w-24 text-left">Ações</div>
+                <div class="hidden md:grid md:grid-cols-[70px_1.5fr_1.2fr_1fr_100px_130px_100px] gap-4 bg-white/[0.02] border-b border-white/5 px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest items-center">
+                    <div class="text-left">Horário</div>
+                    <div class="text-left">Cliente</div>
+                    <div class="text-left">Procedimentos</div>
+                    <div class="text-left">Observações</div>
+                    <div class="text-left">Valor</div>
+                    <div class="text-left">Pagamento</div>
+                    <div class="text-right pr-4">Ações</div>
                 </div>
 
                 <div id="tableBody" class="divide-y divide-white/5">

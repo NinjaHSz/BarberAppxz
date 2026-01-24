@@ -24,8 +24,10 @@ export const RecordRow = (record) => {
     : `new_${record.time.replace(/:/g, "")}`;
 
   return `
-        <div class="flex flex-col md:flex-row items-center md:items-center px-6 md:px-8 py-4 md:py-4 gap-4 md:gap-0 hover:bg-white/[0.01] transition-colors group relative glass-card md:bg-transparent rounded-2xl md:rounded-none m-2 md:m-0 border md:border-0 border-white/5 ${isBreak ? "bg-white/[0.02] border-white/10" : ""}" style="z-index: 1;" onfocusin="this.style.zIndex = '100'" onfocusout="this.style.zIndex = '1'">
-            <div class="w-full md:w-16 text-xs md:text-sm text-amber-500 md:text-slate-400 font-black md:font-medium flex justify-between md:flex md:justify-start">
+        <div class="flex flex-col md:grid md:grid-cols-[70px_1.5fr_1.2fr_1fr_100px_130px_100px] md:gap-4 items-center px-6 py-4 md:py-3 hover:bg-white/[0.01] transition-colors group relative glass-card md:bg-transparent rounded-2xl md:rounded-none m-2 md:m-0 border md:border-0 border-white/5 ${isBreak ? "bg-white/[0.02] border-white/10" : ""}" style="z-index: 1;" onfocusin="this.style.zIndex = '100'" onfocusout="this.style.zIndex = '1'">
+            
+            <!-- HORARIO -->
+            <div class="w-full text-xs md:text-sm text-amber-500 md:text-slate-400 font-black md:font-medium flex justify-between md:block">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Horário:</span>
                 <input type="time" id="edit_time_${rowId}" data-id="${id}" data-ui-id="${rowId}" data-field="time" data-time="${record.time}" data-date="${record.date}"
                      onblur="window.saveInlineEdit(this)" onkeydown="window.handleInlineKey(event)" onfocus="window.clearPlaceholder(this)"
@@ -33,13 +35,14 @@ export const RecordRow = (record) => {
                      class="bg-dark-900 border border-white/5 outline-none focus:border-amber-500/50 rounded px-1.5 py-0.5 w-full md:w-auto text-xs font-bold text-amber-500 md:text-white/80 transition-all text-left">
             </div>
             
-            <div class="w-full md:flex-1 md:px-4 text-sm md:text-sm font-bold md:font-semibold flex justify-between md:flex md:justify-start relative">
+            <!-- CLIENTE -->
+            <div class="w-full text-sm md:text-sm font-bold md:font-semibold flex justify-between md:block relative min-w-0">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Cliente:</span>
-                <div class="flex items-center justify-start gap-2">
+                <div class="flex items-center justify-start gap-2 max-w-full">
                     <div contenteditable="true" id="edit_client_${rowId}" spellcheck="false" data-id="${id}" data-ui-id="${rowId}" data-field="client" data-time="${record.time}" data-date="${record.date}"
                          onblur="window.saveInlineEdit(this)" onkeydown="window.handleInlineKey(event)" oninput="window.showInlineAutocomplete(this)" onfocus="window.clearPlaceholder(this)"
                          placeholder="${isEmpty && !isBreak ? "Adicionar Nome..." : ""}"
-                         class="outline-none rounded px-3 py-1.5 min-w-[200px] border border-white/5 hover:bg-white/5 focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50 text-left ${isBreak ? "text-slate-500 font-black" : isEmpty ? "text-slate-400 uppercase" : "text-white uppercase"}">
+                         class="outline-none rounded px-3 py-1.5 w-full md:w-auto border border-white/5 hover:bg-white/5 focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50 text-left truncate ${isBreak ? "text-slate-500 font-black" : isEmpty ? "text-slate-400 uppercase" : "text-white uppercase"}">
                         ${isBreak ? '<i class="fas fa-circle-minus mr-2"></i> PAUSA' : record.client}
                     </div>
                     ${(() => {
@@ -49,7 +52,7 @@ export const RecordRow = (record) => {
                         state.clients.find((cli) => cli.nome === record.client)
                           ?.novo_cliente;
                       return isNew
-                        ? '<span class="bg-amber-500/20 text-amber-500 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">Novo</span>'
+                        ? '<span class="bg-amber-500/20 text-amber-500 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider hidden lg:inline-block">Novo</span>'
                         : "";
                     })()}
                 </div>
@@ -57,37 +60,40 @@ export const RecordRow = (record) => {
                   !isEmpty && !isBreak
                     ? `
                     <button onclick="window.viewProfileByName('${record.client.replace(/'/g, "\\'")}')" 
-                            class="hidden md:flex absolute -right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 text-amber-500/50 hover:text-amber-500 transition-all z-[10]"
+                            class="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 text-amber-500/50 hover:text-amber-500 transition-all z-[10]"
                             title="Ver Perfil">
                         <i class="fas fa-external-link-alt text-[10px]"></i>
                     </button>
                 `
                     : ""
                 }
-                <div id="inlineAutocomplete_client_${rowId}" class="hidden absolute left-0 right-0 top-full mt-2 bg-dark-800 border border-white/20 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.7)] max-h-48 overflow-y-auto p-1.5 z-[500] backdrop-blur-3xl lg:min-w-[200px]"></div>
+                <div id="inlineAutocomplete_client_${rowId}" class="hidden absolute left-0 right-0 top-full mt-2 bg-dark-800 border border-white/20 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.7)] max-h-48 overflow-y-auto p-1.5 z-[500] backdrop-blur-3xl min-w-[200px]"></div>
             </div>
 
-            <div class="w-full md:flex-1 md:px-4 text-xs md:text-sm flex justify-between md:flex md:justify-start md:text-left relative">
+            <!-- SERVIÇO -->
+            <div class="w-full text-xs md:text-sm flex justify-between md:block md:text-left relative min-w-0">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Serviço:</span>
                 <div contenteditable="true" id="edit_service_${rowId}" spellcheck="false" data-id="${id}" data-ui-id="${rowId}" data-field="service" data-time="${record.time}" data-date="${record.date}"
                      onblur="window.saveInlineEdit(this)" onkeydown="window.handleInlineKey(event)" oninput="window.showInlineAutocomplete(this)" onfocus="window.clearPlaceholder(this)"
-                     class="outline-none rounded px-1 focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50 text-left ${isBreak ? "text-slate-600 italic" : isEmpty ? "text-slate-500" : record.service === "A DEFINIR" ? "text-red-500 font-black animate-pulse" : "text-white font-medium"} uppercase">
+                     class="outline-none rounded px-1 focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50 text-left truncate w-full ${isBreak ? "text-slate-600 italic" : isEmpty ? "text-slate-500" : record.service === "A DEFINIR" ? "text-red-500 font-black animate-pulse" : "text-white font-medium"} uppercase">
                     ${isBreak ? "RESERVADO" : record.service}
                 </div>
-                <div id="inlineAutocomplete_service_${rowId}" class="hidden absolute left-0 right-0 top-full mt-2 bg-dark-800 border border-white/20 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.7)] max-h-48 overflow-y-auto p-1.5 z-[500] backdrop-blur-3xl lg:min-w-[200px]"></div>
+                <div id="inlineAutocomplete_service_${rowId}" class="hidden absolute left-0 right-0 top-full mt-2 bg-dark-800 border border-white/20 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.7)] max-h-48 overflow-y-auto p-1.5 z-[500] backdrop-blur-3xl min-w-[200px]"></div>
             </div>
 
-            <div class="w-full md:flex-1 md:px-4 text-[10px] md:text-xs flex justify-between md:block md:text-left relative group/obs">
+            <!-- OBS -->
+            <div class="w-full text-[10px] md:text-xs flex justify-between md:block md:text-left relative group/obs min-w-0">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Obs:</span>
                 <div contenteditable="true" id="edit_obs_${rowId}" spellcheck="false" autocomplete="off" data-id="${id}" data-ui-id="${rowId}" data-field="observations" data-time="${record.time}" data-date="${record.date}"
                      onblur="window.saveInlineEdit(this)" onkeydown="window.handleInlineKey(event)" onfocus="window.clearPlaceholder(this)"
-                     class="outline-none rounded px-1 focus:bg-white/5 focus:ring-1 focus:ring-white/20 text-slate-500 hover:text-slate-300 transition-all italic truncate focus:whitespace-normal focus:break-words max-w-[120px] md:max-w-[180px] cursor-text"
+                     class="outline-none rounded px-1 focus:bg-white/5 focus:ring-1 focus:ring-white/20 text-slate-500 hover:text-slate-300 transition-all italic truncate focus:whitespace-normal focus:break-words w-full cursor-text"
                      title="${record.observations || ""}">
                     ${isBreak || isEmpty ? "---" : record.observations || "Nenhuma obs..."}
                 </div>
             </div>
 
-            <div class="w-full md:w-24 text-sm md:text-sm font-bold md:font-bold ${isBreak ? "text-slate-600/50" : "text-white md:text-amber-500/90"} flex justify-between md:block md:text-left relative">
+            <!-- VALOR -->
+            <div class="w-full text-sm md:text-sm font-bold md:font-bold ${isBreak ? "text-slate-600/50" : "text-white md:text-amber-500/90"} flex justify-between md:block md:text-left relative">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Valor:</span>
                 <div contenteditable="true" id="edit_value_${rowId}" spellcheck="false" autocomplete="off" data-id="${id}" data-ui-id="${rowId}" data-field="value" data-time="${record.time}" data-date="${record.date}"
                      onblur="window.saveInlineEdit(this)" onkeydown="window.handleInlineKey(event)" onfocus="window.clearPlaceholder(this)"
@@ -96,7 +102,8 @@ export const RecordRow = (record) => {
                 </div>
             </div>
 
-            <div class="w-full md:w-28 flex justify-between md:justify-start items-center">
+            <!-- PAGAMENTO -->
+            <div class="w-full flex justify-between md:justify-start items-center">
                 <span class="md:hidden text-slate-500 font-bold uppercase text-[10px]">Pagamento:</span>
                 ${
                   isBreak
@@ -104,9 +111,9 @@ export const RecordRow = (record) => {
                     <span class="px-2 py-0.5 rounded-lg text-[10px] font-black border-transparent bg-transparent text-slate-400 uppercase tracking-tighter text-left w-20">N/A</span>
                 `
                     : `
-                    <div class="relative ${isEmpty ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity" : ""}">
+                    <div class="relative w-full md:w-full ${isEmpty ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity" : ""}">
                         <select id="edit_payment_${rowId}" onchange="window.saveInlineEdit(this)" data-id="${id}" data-ui-id="${rowId}" data-field="payment"
-                                class="appearance-none px-2 py-0.5 rounded-lg text-[10px] font-black border border-white/5 bg-white/[0.03] text-slate-500 uppercase tracking-tighter cursor-pointer focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50 outline-none transition-all pr-4 text-left w-24">
+                                class="w-full appearance-none px-2 py-0.5 rounded-lg text-[10px] font-black border border-white/5 bg-white/[0.03] text-slate-500 uppercase tracking-tighter cursor-pointer focus:bg-amber-500/10 focus:ring-1 focus:ring-amber-500/50 outline-none transition-all pr-4 text-left">
                             ${[
                               "PIX",
                               "DINHEIRO",
@@ -129,7 +136,8 @@ export const RecordRow = (record) => {
                 }
             </div>
 
-            <div class="w-full md:w-24 flex justify-end md:justify-start gap-2 pt-4 md:pt-0 border-t md:border-0 border-white/5">
+            <!-- AÇÕES -->
+            <div class="w-full flex justify-end gap-2 pt-4 md:pt-0 border-t md:border-0 border-white/5">
                 ${
                   !isEmpty
                     ? `
@@ -137,7 +145,7 @@ export const RecordRow = (record) => {
                     <button onclick="window.cancelAppointment('${record.id}')" class="w-9 h-9 md:w-8 md:h-8 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all transform active:scale-95 shadow-sm flex items-center justify-center"><i class="fas fa-trash-can text-xs"></i></button>
                 `
                     : `
-                    <button onclick="window.openAddModal('${record.time}', '${record.date}')" class="w-full md:w-auto px-4 py-2 md:py-1 rounded-lg bg-amber-500 text-dark-950 hover:bg-white hover:text-amber-600 text-[10px] font-black uppercase transition-all shadow-lg shadow-amber-500/10 active:scale-95 border border-transparent text-center items-center justify-center">Agendar Horário</button>
+                    <button onclick="window.openAddModal('${record.time}', '${record.date}')" class="w-full md:w-full px-4 py-2 md:py-1 rounded-lg bg-amber-500 text-dark-950 hover:bg-white hover:text-amber-600 text-[10px] font-black uppercase transition-all shadow-lg shadow-amber-500/10 active:scale-95 border border-transparent text-center items-center justify-center">Agendar</button>
                 `
                 }
             </div>
