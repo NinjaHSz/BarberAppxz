@@ -7,6 +7,14 @@ import { navigate } from "../navigation.js";
 export const ClientProfilePage = () => {
   const client = state.clients.find((c) => c.id == state.selectedClientId);
   if (!client) {
+    if (state.isLoading) {
+      return `
+                <div class="p-20 text-center animate-pulse">
+                    <i class="fas fa-spinner fa-spin text-4xl text-brand-primary mb-4"></i>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-text-muted">Carregando dados do cliente...</p>
+                </div>
+            `;
+    }
     return `
             <div class="p-8 h-full flex flex-col items-center justify-center text-center space-y-4">
                 <i class="fas fa-user-slash text-6xl text-white/5"></i>

@@ -149,6 +149,23 @@ export const setupGlobalHandlers = () => {
     });
   });
 
+  window.setExpenseFilter = (field, val) => {
+    state[field] = val;
+    if (field === "expenseSearchTerm") {
+      const inputId = "expenseSearchInput";
+      const cursorPosition = document.getElementById(inputId)?.selectionStart;
+      if (window.render) window.render();
+      const input = document.getElementById(inputId);
+      if (input) {
+        input.focus();
+        if (cursorPosition !== undefined)
+          input.setSelectionRange(cursorPosition, cursorPosition);
+      }
+    } else {
+      if (window.render) window.render();
+    }
+  };
+
   window.navigate = navigate;
   window.hasGlobalHandlers = true;
 };

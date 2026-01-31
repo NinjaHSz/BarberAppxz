@@ -4,6 +4,8 @@ import {
   fetchClients,
   fetchProcedures,
   fetchAllPlanPayments,
+  fetchExpenses,
+  fetchCards,
 } from "./api/supabase.js";
 import { syncFromSheet } from "./api/sync.js";
 import { render } from "./ui/render.js";
@@ -25,6 +27,8 @@ syncFromHash();
       fetchClients(),
       fetchProcedures(),
       fetchAllPlanPayments(),
+      fetchExpenses(),
+      fetchCards(),
     ]);
 
     if (state.sheetUrl) {
@@ -33,6 +37,7 @@ syncFromHash();
   } catch (err) {
     console.error("Erro na inicialização de dados:", err);
   } finally {
+    state.isLoading = false;
     render();
   }
 })();

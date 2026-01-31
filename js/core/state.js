@@ -4,6 +4,7 @@ export const state = {
   currentPage: "dashboard",
   isIntegrated: localStorage.getItem("isIntegrated") === "true",
   syncStatus: "idle",
+  isLoading: true,
   searchTerm: "",
   sheetUrl: localStorage.getItem("sheetUrl") || SUPABASE_URL,
   isValidating: false,
