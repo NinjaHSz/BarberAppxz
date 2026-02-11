@@ -35,21 +35,40 @@ O **BarberApp** é um sistema de gestão completo para barbearias, focado em alt
 - **Gestão de Cartões:** Cadastro de cartões de crédito (Banco, Titular, Vencimento, Fechamento).
 - **Lógica de Parcelamento:** Identificação de parcelas e origem dos pagamentos.
 
+### 3.5. Suporte Offline e PWA
+
+- **Instalabilidade:** Configuração de Manifesto PWA para instalação como aplicativo nativo (Windows/Android/iOS).
+- **Service Worker:** Cache de recursos estáticos e bibliotecas externas para funcionamento offline total.
+- **Persistência Local:** Sincronização automática entre Supabase e `localStorage` para garantir disponibilidade imediata dos dados mesmo sem conexão.
+
 ## 4. Arquitetura Técnica
 
 - **Frontend:** HTML5, CSS3 (Tailwind via CDN), Vanilla JavaScript.
-- **Backend/Database:** Supabase (PostgreSQL) para persistência de dados.
+- **Backend/Database:** Supabase (PostgreSQL) para persistência de dados em nuvem.
 - **Sincronização:** Motor híbrido que sincroniza tabelas do Supabase com planilhas Google (CSV/Macros).
-- **Estado Global:** Objeto `state` centralizado no `index.js` atuando como Single Source of Truth.
+- **Estado Global:** Objeto `state` centralizado gerenciando o Single Source of Truth.
+- **PWA Engine:** Service Worker (v3) cuidando do cacheamento e `manifest.json` para identidade visual do app.
+- **Offline First:** Estratégia de leitura prioritária do `localStorage` na inicialização, com reidratação via API.
 
-## 5. Regras de Negócio Críticas
+## 5. UI/UX e Design System (Obsidian Glass)
 
-1. **Prioridade de Pagamento:** Ao criar um agendamento para um cliente com plano ativo, o sistema deve sugerir automaticamente o método de pagamento vinculado ao plano.
-2. **Cálculo de Receita:** O faturamento total deve somar agendamentos realizados + pagamentos de planos de clientes.
-3. **Validação de Datas:** Bloqueio de agendamentos em datas inválidas ou conflitos de horários conforme configuração.
+1. **Estética Monocromática:** Uso estrito de pretos e cinzas profundos (`#09090B`, `#18181B`).
+2. **Zero Borders:** Interfaces baseadas em elevação por sombras e variações de fundo, eliminando bordas sólidas.
+3. **Glassmorphism:** Cards com desfoque de fundo (`backdrop-blur-xl`) e opacidade reduzida.
+4. **Responsividade Mobile-First:**
+   - Fontes dinâmicas e `whitespace-nowrap` em KPIs.
+   - Padding inferior fixo (`pb-32`) para evitar sobreposição com barra de navegação mobile.
+   - Layouts de tabela que se transformam em cards verticais em telas pequenas.
 
-## 6. Fluxos de Teste Sugeridos (Backend/Lógica)
+## 6. Regras de Negócio Críticas
 
-- **Sincronização:** Validar se a função `syncFromSheet` popula corretamente o estado global.
-- **Cálculo Financeiro:** Verificar se `updateInternalStats` reflete a soma correta de agendamentos e planos.
-- **CRUD Clientes:** Testar a persistência de novos clientes e atualização de datas de início de plano.
+1. **Prioridade de Pagamento:** Sugestão automática do plano contratado durante o agendamento.
+2. **Cálculo de Receita:** Faturamento = Agendamentos + Planos - Despesas (quando filtrado por lucro).
+3. **Sincronização de Estado:** Qualquer alteração via API deve ser imediatamente replicada no `localStorage`.
+
+## 7. Fluxos de Teste Sugeridos
+
+- **Sincronização:** Validar `syncFromSheet` e persistência no `localStorage`.
+- **Cálculo Financeiro:** Verificar `updateInternalStats` com dados cacheados vs dados novos.
+- **Resiliência Offline:** Testar carregamento e navegação do app sem conexão ativa.
+- **CRUD:** Testar criação/edição e deleção com atualização reativa da UI.

@@ -26,7 +26,7 @@ export const RecordRow = (record) => {
   const isCompact = state.displayMode === "compact";
 
   return `
-        <div class="flex flex-col md:grid md:grid-cols-[70px_1.5fr_1.2fr_1fr_100px_130px_100px] md:gap-4 items-center px-6 ${isCompact ? "py-1" : "py-4 md:py-3"} hover:bg-surface-subtle transition-colors group relative glass-card md:bg-transparent rounded-2xl md:rounded-none m-2 md:m-0 border-none ${isBreak ? "bg-surface-subtle" : ""}" style="z-index: 1;" onfocusin="this.style.zIndex = '100'" onfocusout="this.style.zIndex = '1'">
+        <div class="flex flex-col md:grid md:grid-cols-[70px_1.5fr_1.2fr_1fr_100px_130px_100px] md:gap-4 items-center px-6 ${isCompact ? "py-1" : "py-4 md:py-3"} hover:bg-surface-subtle transition-colors group relative glass-card md:bg-transparent rounded-2xl md:rounded-none m-2 md:m-0 border-none ${isBreak ? "bg-surface-subtle" : ""} focus-within:z-[100] z-[1]">
             
             <!-- HORARIO -->
             <div class="w-full text-xs md:text-sm text-brand-primary md:text-text-secondary font-black md:font-medium flex justify-between md:block">

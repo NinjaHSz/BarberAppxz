@@ -2,7 +2,7 @@ import { state } from "../core/state.js";
 import { SUPABASE_URL, SUPABASE_KEY } from "../core/config.js";
 import { fetchClients, fetchProcedures } from "./supabase.js";
 
-export async function syncFromSheet(url) {
+export async function syncFromSheet(url, silent = false) {
   if (!url) return false;
 
   try {
@@ -243,7 +243,7 @@ export async function syncFromSheet(url) {
 
     if (window.updateInternalStats) window.updateInternalStats();
     state.syncStatus = "idle";
-    if (window.render) window.render();
+    if (window.render && !silent) window.render();
     return true;
   } catch (err) {
     console.error("Erro crítico no Sync:", err);

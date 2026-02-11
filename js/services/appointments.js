@@ -232,9 +232,18 @@ export const saveInlineEdit = async (el) => {
         const rec = state.records.find((r) => String(r.id) === String(id));
         if (rec) {
           if (field === "payment") rec.paymentMethod = finalValue;
+          else if (field === "value") rec.value = finalValue;
           else rec[field] = finalValue;
         }
-        syncFromSheet(state.sheetUrl);
+        // Background sync without full re-render to avoid flickering for the user
+        // We only full-sync if it was a 'new' record that now has a real ID
+        if (id !== "new") {
+          // Skip full render here, the DOM is already updated by the user's input
+          // We'll just do a background sync to keep state consistent without blowing away the UI
+          syncFromSheet(state.sheetUrl, true);
+        } else {
+          syncFromSheet(state.sheetUrl);
+        }
       }
     }
   } catch (err) {
