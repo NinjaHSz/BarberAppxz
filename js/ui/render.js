@@ -94,7 +94,7 @@ export function render() {
           .appendChild(div.firstElementChild);
       }
     } else {
-      const existingModal = app.querySelector(".fixed.inset-0.z-50"); // Standard modal class
+      const existingModal = app.querySelector(".modal-container");
       if (existingModal) existingModal.remove();
     }
   }
