@@ -139,6 +139,11 @@ export const RecordsPage = () => {
                           state.showEmptySlots ? "fa-eye-slash" : "fa-eye"
                         }"></i>
                     </button>
+                    <button onclick="window.handleCopyTimes(event)" 
+                            class="flex items-center justify-center w-10 h-10 rounded-xl border-none bg-surface-section/50 hover:bg-surface-subtle transition-all text-text-secondary hover:text-text-primary shrink-0"
+                            title="Copiar Horários Livres">
+                        <i class="fas fa-copy"></i>
+                    </button>
                     <div class="relative flex-1 sm:w-80">
                         <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-text-muted"></i>
                         <input type="text" 

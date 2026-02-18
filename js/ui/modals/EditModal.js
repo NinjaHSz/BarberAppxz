@@ -57,7 +57,13 @@ export const EditModal = () => {
                     </div>
                     
                     <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Sugestões de Horário Livre</label>
+                        <div class="flex justify-between items-center">
+                            <label class="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Sugestões de Horário Livre</label>
+                            <button type="button" onclick="window.handleCopyTimes(event, document.querySelector('input[name=date]').value)" 
+                                    class="text-[10px] font-black uppercase tracking-widest text-brand-primary hover:opacity-80 transition-all flex items-center">
+                                <i class="fas fa-copy mr-1 text-[12px]"></i> Copiar Lista
+                            </button>
+                        </div>
                         <div id="timeSuggestionsModal" class="flex flex-wrap gap-2 min-h-[30px]">
                             <p class="text-[10px] text-slate-600 italic">Selecione uma data para ver horários...</p>
                         </div>
