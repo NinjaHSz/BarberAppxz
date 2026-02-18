@@ -63,26 +63,40 @@ export const setupInlineAutocomplete = () => {
       const isNew = el.dataset.id === "new";
 
       if (field === "client") {
+        const valueEl = document.querySelector(
+          `[data-ui-id="${uiId}"][data-field="value"]`,
+        );
+        const serviceEl = document.querySelector(
+          `[data-ui-id="${uiId}"][data-field="service"]`,
+        );
+        const paymentSelect = document.querySelector(
+          `[data-ui-id="${uiId}"][data-field="payment"]`,
+        );
+        const client = state.clients.find(
+          (c) => c.nome.toLowerCase() === value.toLowerCase(),
+        );
+
+        // Apply Preset if exists
+        if (client && client.preset) {
+          if (serviceEl) serviceEl.innerText = client.preset.service || "";
+          if (valueEl)
+            valueEl.innerText = client.preset.value
+              ? parseFloat(client.preset.value).toFixed(2)
+              : "";
+          if (paymentSelect)
+            paymentSelect.value = client.preset.payment || "PIX";
+        }
+
         const usage = getClientPlanUsage(value);
         if (usage) {
-          const client = state.clients.find(
-            (c) => c.nome.toLowerCase() === value.toLowerCase(),
-          );
-          const serviceEl = document.querySelector(
-            `[data-ui-id="${uiId}"][data-field="service"]`,
-          );
-          const valueEl = document.querySelector(
-            `[data-ui-id="${uiId}"][data-field="value"]`,
-          );
-          const paymentSelect = document.querySelector(
-            `[data-ui-id="${uiId}"][data-field="payment"]`,
-          );
           const dateVal =
             document.querySelector(`[data-ui-id="${uiId}"][data-field="time"]`)
               ?.dataset.date || new Date().toISOString().split("T")[0];
 
           if (usage.isWithinLimit) {
-            if (serviceEl) serviceEl.innerText = `${usage.nextVisit}º DIA`;
+            if (serviceEl && (!client?.preset || !client.preset.service)) {
+              serviceEl.innerText = `${usage.nextVisit}º DIA`;
+            }
             if (valueEl) valueEl.innerText = "0.00";
             if (paymentSelect) {
               let planPayment = "PLANO MENSAL";
@@ -92,10 +106,13 @@ export const setupInlineAutocomplete = () => {
               paymentSelect.value = planPayment;
             }
           } else {
-            if (serviceEl) serviceEl.innerText = `RENOVAÇÃO`;
-            if (valueEl && client?.valor_plano)
-              valueEl.innerText = parseFloat(client.valor_plano).toFixed(2);
-            if (paymentSelect) paymentSelect.value = "PIX";
+            if (!client?.preset) {
+              if (serviceEl) serviceEl.innerText = `RENOVAÇÃO`;
+              if (valueEl && client?.valor_plano)
+                valueEl.innerText = parseFloat(client.valor_plano).toFixed(2);
+              if (paymentSelect) paymentSelect.value = "PIX";
+            }
+
             if (client && window.updateClientPlan)
               window.updateClientPlan(
                 client.id,
@@ -103,9 +120,15 @@ export const setupInlineAutocomplete = () => {
                 true,
               );
           }
-          saveInlineEdit(el);
-          return;
         }
+        saveInlineEdit(el);
+        // Also save other fields if they were updated by preset/plan
+        if (!isNew) {
+          if (serviceEl) saveInlineEdit(serviceEl);
+          if (valueEl) saveInlineEdit(valueEl);
+          if (paymentSelect) saveInlineEdit(paymentSelect);
+        }
+        return;
       }
 
       if (field === "service") {

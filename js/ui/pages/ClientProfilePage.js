@@ -55,6 +55,74 @@ export const ClientProfilePage = () => {
     }
   };
 
+  window.togglePreset = () => {
+    const el = document.getElementById("preset_section");
+    if (el) {
+      el.classList.toggle("hidden");
+    }
+  };
+
+  window.savePresetField = async (clientId, field, value) => {
+    const client = state.clients.find((c) => c.id == clientId);
+    if (!client) return;
+
+    const preset = client.preset || {
+      service: "",
+      value: "",
+      payment: "PIX",
+    };
+    preset[field] = value;
+
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/clientes?id=eq.${clientId}`,
+        {
+          method: "PATCH",
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: "Bearer " + SUPABASE_KEY,
+            "Content-Type": "application/json",
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({ preset: preset }),
+        },
+      );
+      if (res.ok) {
+        client.preset = preset;
+        fetchClients();
+      }
+    } catch (err) {
+      console.error("Erro ao salvar preset:", err);
+    }
+  };
+
+  window.clearPreset = async (clientId) => {
+    if (!confirm("Deseja remover o preset deste cliente?")) return;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/clientes?id=eq.${clientId}`,
+        {
+          method: "PATCH",
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: "Bearer " + SUPABASE_KEY,
+            "Content-Type": "application/json",
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({ preset: null }),
+        },
+      );
+      if (res.ok) {
+        const client = state.clients.find((c) => c.id == clientId);
+        if (client) client.preset = null;
+        fetchClients();
+        if (window.render) window.render();
+      }
+    } catch (err) {
+      console.error("Erro ao remover preset:", err);
+    }
+  };
+
   const clientRecords = state.records
     .filter(
       (r) =>
@@ -97,9 +165,13 @@ export const ClientProfilePage = () => {
                          class="text-xs text-text-muted font-medium outline-none hover:text-white transition-all cursor-text italic truncate max-w-md mx-auto sm:mx-0">
                         ${!client.observacoes_cliente || client.observacoes_cliente.includes("...") ? "Adicionar nota..." : client.observacoes_cliente}
                     </div>
-                    <div class="pt-2">
+                    <div class="flex items-center gap-2 pt-2">
                         <button onclick="navigate('plans')" class="text-[9px] font-black text-text-muted hover:text-white uppercase tracking-widest flex items-center gap-2 group mx-auto sm:mx-0">
                             <i class="fas fa-chevron-left transition-transform group-hover:-translate-x-1"></i> Voltar
+                        </button>
+                        <span class="text-text-muted/20">|</span>
+                        <button onclick="window.togglePreset()" class="text-[9px] font-black text-brand-primary hover:text-white uppercase tracking-widest flex items-center gap-2 group mx-auto sm:mx-0">
+                            <i class="fas fa-magic"></i> Preset
                         </button>
                     </div>
                 </div>
@@ -123,6 +195,50 @@ export const ClientProfilePage = () => {
                     <p class="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Última Vez</p>
                     <h3 class="text-xl font-display font-black text-white">${lastVisit !== "Nunca" ? new Date(lastVisit + "T00:00:00").toLocaleDateString("pt-BR") : "--"}</h3>
                 </div>
+            </div>
+
+            <!-- Preset Configuration (Collapsible) -->
+            <div id="preset_section" class="${client.preset ? "" : "hidden"} bg-surface-section/30 p-6 rounded-[2rem] space-y-6 border border-brand-primary/10">
+                <div class="flex justify-between items-center px-2">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-magic text-brand-primary text-xs"></i>
+                        <h3 class="text-[10px] font-black text-white uppercase tracking-widest">Preset de Atendimento</h3>
+                    </div>
+                    <button onclick="window.clearPreset('${client.id}')" class="text-[8px] font-black text-rose-500 uppercase tracking-widest hover:bg-rose-500/10 px-2 py-1 rounded transition-all">
+                        <i class="fas fa-trash-alt mr-1"></i> Remover Preset
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-surface-page/50 p-4 rounded-xl space-y-1 group focus-within:ring-1 ring-brand-primary/30 transition-all">
+                        <p class="text-[8px] font-black text-text-muted uppercase tracking-widest">Serviço Padrão</p>
+                        <input type="text" value="${client.preset?.service || ""}" 
+                               placeholder="EX: CORTE"
+                               onblur="window.savePresetField('${client.id}', 'service', this.value)"
+                               class="bg-transparent border-none text-[11px] font-black text-white uppercase outline-none w-full p-0 placeholder:text-text-muted/20">
+                    </div>
+                    <div class="bg-surface-page/50 p-4 rounded-xl space-y-1 group focus-within:ring-1 ring-brand-primary/30 transition-all">
+                        <p class="text-[8px] font-black text-text-muted uppercase tracking-widest">Valor Padrão</p>
+                        <div class="flex items-center gap-1">
+                            <span class="text-[9px] font-bold text-text-muted">R$</span>
+                            <input type="number" step="0.01" value="${client.preset?.value || ""}" 
+                                   placeholder="0,00"
+                                   onblur="window.savePresetField('${client.id}', 'value', this.value)"
+                                   class="bg-transparent border-none text-[11px] font-black text-white outline-none w-full p-0 placeholder:text-text-muted/20">
+                        </div>
+                    </div>
+                    <div class="bg-surface-page/50 p-4 rounded-xl space-y-1 group focus-within:ring-1 ring-brand-primary/30 transition-all">
+                        <p class="text-[8px] font-black text-text-muted uppercase tracking-widest">Forma de Pagamento</p>
+                        <select onchange="window.savePresetField('${client.id}', 'payment', this.value)" 
+                                class="bg-transparent border-none text-[11px] font-black text-white uppercase outline-none w-full p-0 appearance-none cursor-pointer">
+                            <option value="PIX" ${client.preset?.payment === "PIX" ? "selected" : ""} class="bg-surface-page">PIX</option>
+                            <option value="DINHEIRO" ${client.preset?.payment === "DINHEIRO" ? "selected" : ""} class="bg-surface-page">DINHEIRO</option>
+                            <option value="CARTÃO" ${client.preset?.payment === "CARTÃO" ? "selected" : ""} class="bg-surface-page">CARTÃO</option>
+                            <option value="CORTESIA" ${client.preset?.payment === "CORTESIA" ? "selected" : ""} class="bg-surface-page">CORTESIA</option>
+                        </select>
+                    </div>
+                </div>
+                <p class="text-[7px] font-bold text-text-muted uppercase tracking-widest px-2 italic">* O preset será aplicado automaticamente ao selecionar este cliente no agendamento.</p>
             </div>
 
             <!-- Plan Details -->

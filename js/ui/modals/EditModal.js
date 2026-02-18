@@ -7,7 +7,7 @@ export const EditModal = () => {
 
   return `
         <div class="modal-container fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-            <div class="glass-card w-[98%] sm:w-full max-w-lg max-h-[95vh] overflow-y-auto custom-scroll rounded-[2rem] sm:rounded-[2.5rem] border border-transparent shadow-2xl relative animate-in zoom-in-95 duration-300">
+            <div class="glass-card w-[98%] sm:w-full max-w-lg max-h-[95vh] overflow-y-auto custom-scroll rounded-[2rem] sm:rounded-[2.5rem] border border-transparent shadow-2xl relative anim  ate-in zoom-in-95 duration-300">
                 <div class="sticky top-0 z-10 p-4 sm:p-5 border-b border-transparent flex justify-between items-center bg-dark-900/95 backdrop-blur-md">
                     <div class="flex items-center gap-3 sm:gap-4">
                         <div class="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center text-brand-primary shrink-0">

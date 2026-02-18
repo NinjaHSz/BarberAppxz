@@ -83,6 +83,22 @@ export function render() {
       header.replaceWith(headerPlaceholder.firstElementChild);
     }
 
+    // Update Sidebar
+    const aside = app.querySelector("aside");
+    if (aside) {
+      const asidePlaceholder = document.createElement("div");
+      asidePlaceholder.innerHTML = Sidebar();
+      aside.replaceWith(asidePlaceholder.firstElementChild);
+    }
+
+    // Update Mobile Nav
+    const mobileNav = app.querySelector("nav.md\\:hidden"); // Target mobile nav specifically
+    if (mobileNav) {
+      const navPlaceholder = document.createElement("div");
+      navPlaceholder.innerHTML = MobileNav();
+      mobileNav.replaceWith(navPlaceholder.firstElementChild);
+    }
+
     // Modal check
     const modalContainer = app.querySelector(".modal-container"); // Assuming EditModal has a predictable wrapper
     if (state.isEditModalOpen) {

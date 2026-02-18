@@ -60,23 +60,37 @@ export const setupAutocomplete = () => {
     document.getElementById("clientDropdown")?.classList.add("hidden");
 
     const usage = getClientPlanUsage(name);
-    if (usage && usage.isWithinLimit) {
-      const form = document.querySelector(
-        'form[onsubmit="window.saveNewRecord(event)"]',
+    const form = document.querySelector(
+      'form[onsubmit="window.saveNewRecord(event)"]:not(.glass-card form)',
+    );
+    if (form) {
+      const serviceInput = form.querySelector("#serviceSearchInput");
+      const serviceHidden = form.querySelector('input[name="service"]');
+      const valueInput = form.querySelector('input[name="value"]');
+      const paymentSelect = form.querySelector('select[name="payment"]');
+      const client = state.clients.find(
+        (c) => c.nome.toLowerCase() === name.toLowerCase(),
       );
-      if (form) {
-        const serviceInput = form.querySelector("#serviceSearchInput");
-        const serviceHidden = form.querySelector('input[name="service"]');
-        const valueInput = form.querySelector('input[name="value"]');
-        const paymentSelect = form.querySelector('select[name="payment"]');
+
+      // Apply Preset if exists
+      if (client && client.preset) {
+        if (serviceInput) serviceInput.value = client.preset.service || "";
+        if (serviceHidden) serviceHidden.value = client.preset.service || "";
+        if (valueInput)
+          valueInput.value = client.preset.value
+            ? parseFloat(client.preset.value).toFixed(2)
+            : "";
+        if (paymentSelect) paymentSelect.value = client.preset.payment || "PIX";
+      }
+
+      if (usage && usage.isWithinLimit) {
         const planServiceName = `${usage.nextVisit}º DIA`;
-        if (serviceInput) serviceInput.value = planServiceName;
-        if (serviceHidden) serviceHidden.value = planServiceName;
+        if (serviceInput && (!client?.preset || !client.preset.service)) {
+          serviceInput.value = planServiceName;
+          if (serviceHidden) serviceHidden.value = planServiceName;
+        }
         if (valueInput) valueInput.value = "0";
         if (paymentSelect) {
-          const client = state.clients.find(
-            (c) => c.nome.toLowerCase() === name.toLowerCase(),
-          );
           let planPayment = "PLANO MENSAL";
           if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
           if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
@@ -150,7 +164,7 @@ export const setupAutocomplete = () => {
     const form = document.querySelector(
       '.glass-card form[onsubmit="window.saveNewRecord(event)"]',
     );
-    if (usage && form) {
+    if (form) {
       const serviceInput = form.querySelector("#serviceSearchInputModal");
       const serviceHidden = form.querySelector('input[name="service"]');
       const valueInput = form.querySelector('input[name="value"]');
@@ -159,24 +173,44 @@ export const setupAutocomplete = () => {
         (c) => c.nome.toLowerCase() === name.toLowerCase(),
       );
 
-      if (usage.isWithinLimit) {
-        const planServiceName = `${usage.nextVisit}º DIA`;
-        if (serviceInput) serviceInput.value = planServiceName;
-        if (serviceHidden) serviceHidden.value = planServiceName;
-        if (valueInput) valueInput.value = "0";
-        if (paymentSelect) {
-          let planPayment = "PLANO MENSAL";
-          if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
-          if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
-          paymentSelect.value = planPayment;
+      // Apply Preset if exists
+      if (client && client.preset) {
+        if (serviceInput) serviceInput.value = client.preset.service || "";
+        if (serviceHidden) serviceHidden.value = client.preset.service || "";
+        if (valueInput)
+          valueInput.value = client.preset.value
+            ? parseFloat(client.preset.value).toFixed(2)
+            : "";
+        if (paymentSelect) paymentSelect.value = client.preset.payment || "PIX";
+      }
+
+      // Plan logic takes precedence for specific fields if valid
+      if (usage) {
+        if (usage.isWithinLimit) {
+          const planServiceName = `${usage.nextVisit}º DIA`;
+          // If no preset service, use plan service name
+          if (serviceInput && (!client?.preset || !client.preset.service)) {
+            serviceInput.value = planServiceName;
+            if (serviceHidden) serviceHidden.value = planServiceName;
+          }
+          if (valueInput) valueInput.value = "0";
+          if (paymentSelect) {
+            let planPayment = "PLANO MENSAL";
+            if (client?.plano === "Semestral") planPayment = "PLANO SEMESTRAL";
+            if (client?.plano === "Anual") planPayment = "PLANO ANUAL";
+            paymentSelect.value = planPayment;
+          }
+        } else {
+          // If over limit, suggest renewal if no preset
+          if (!client?.preset) {
+            const renewalService = `RENOVAÇÃO`;
+            if (serviceInput) serviceInput.value = renewalService;
+            if (serviceHidden) serviceHidden.value = renewalService;
+            if (valueInput && client?.valor_plano)
+              valueInput.value = parseFloat(client.valor_plano).toFixed(2);
+            if (paymentSelect) paymentSelect.value = "PIX";
+          }
         }
-      } else {
-        const renewalService = `RENOVAÇÃO`;
-        if (serviceInput) serviceInput.value = renewalService;
-        if (serviceHidden) serviceHidden.value = renewalService;
-        if (valueInput && client?.valor_plano)
-          valueInput.value = parseFloat(client.valor_plano).toFixed(2);
-        if (paymentSelect) paymentSelect.value = "PIX";
       }
     }
   };
