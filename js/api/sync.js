@@ -13,11 +13,12 @@ export async function syncFromSheet(url, silent = false) {
       console.log("Iniciando Sincronização via Supabase...");
       try {
         const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/agendamentos?select=*`,
+          `${SUPABASE_URL}/rest/v1/agendamentos?select=*&order=data.desc,horario.desc`,
           {
             headers: {
               apikey: SUPABASE_KEY,
               Authorization: "Bearer " + SUPABASE_KEY,
+              Range: "0-5000",
             },
           },
         );
