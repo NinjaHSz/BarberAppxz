@@ -107,9 +107,7 @@ export const ManagePage = () => {
                                   "PIX",
                                   "DINHEIRO",
                                   "CARTÃO",
-                                  "PLANO MENSAL",
-                                  "PLANO SEMESTRAL",
-                                  "PLANO ANUAL",
+                                  "PLANO",
                                   "CORTESIA",
                                 ]
                                   .map(
